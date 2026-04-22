@@ -1,74 +1,87 @@
 import { Tabs } from 'expo-router';
-import { BlurView } from 'expo-blur';
-import { LayoutDashboard, BookOpen, Grid2X2 } from 'lucide-react-native';
+import { LayoutDashboard, User, BookOpen, Flame } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
-import { C } from '../../src/theme/colors';
+import { BlurView } from 'expo-blur';
+import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 
 export default function TabLayout() {
+  const { colors: C, isDark } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: C.blue,
-        tabBarInactiveTintColor: 'rgba(238,240,255,0.22)',
+        tabBarInactiveTintColor: C.textMut,
         tabBarStyle: {
           position: 'absolute',
           borderTopWidth: 0,
           backgroundColor: 'transparent',
           elevation: 0,
-          height: 60,
+          height: 84,
+          paddingBottom: 26,
         },
         tabBarBackground: () => (
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill}>
-            {/* Top hairline */}
-            <View style={styles.topLine} />
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          >
+            <View style={[styles.topHairline, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)' }]} />
           </BlurView>
         ),
         tabBarLabelStyle: {
-          fontFamily: F.mono,
-          fontSize: 8,
-          letterSpacing: 1.5,
-          textTransform: 'uppercase',
-          marginBottom: 4,
+          fontFamily: F.medium,
+          fontSize: 10,
+          letterSpacing: 0.2,
+          marginBottom: 2,
         },
         tabBarIconStyle: {
-          marginTop: 6,
+          marginTop: 8,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Status',
-          tabBarIcon: ({ color }) => <LayoutDashboard color={color} size={20} strokeWidth={1.5} />,
+          title: 'Today',
+          tabBarIcon: ({ color }) => <LayoutDashboard color={color} size={20} strokeWidth={1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <User color={color} size={20} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="quests"
         options={{
           title: 'Quests',
-          tabBarIcon: ({ color }) => <BookOpen color={color} size={20} strokeWidth={1.5} />,
+          tabBarIcon: ({ color }) => <BookOpen color={color} size={20} strokeWidth={1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="habits"
+        options={{
+          title: 'Habits',
+          tabBarIcon: ({ color }) => <Flame color={color} size={20} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen
         name="inventory"
-        options={{
-          title: 'Archive',
-          tabBarIcon: ({ color }) => <Grid2X2 color={color} size={20} strokeWidth={1.5} />,
-        }}
+        options={{ href: null }}
       />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  topLine: {
+  topHairline: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 0.5,
-    backgroundColor: 'rgba(124,131,253,0.18)',
   },
 });

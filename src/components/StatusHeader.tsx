@@ -1,23 +1,20 @@
 /**
- * StatusHeader — Modern Slate-Dark Status Panel
+ * StatusHeader — Themed status panel (light + dark).
  */
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
+  useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
-import { C, RANK_COLOR } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { F } from '../theme/fonts';
 
-interface StatusHeaderProps {
-  level: number;
-  expProgress: number;
-  totalXP: number;
-  nextLevelXP: number;
-}
+const RANK_COLORS_LIGHT: Record<string, string> = {
+  E:'#94A3B8', D:'#10B981', C:'#0891B2', B:'#4F46E5', A:'#7C3AED', S:'#D97706',
+};
+const RANK_COLORS_DARK: Record<string, string> = {
+  E:'#64748B', D:'#34D399', C:'#22D3EE', B:'#818CF8', A:'#A78BFA', S:'#FBBF24',
+};
 
 function rankFromLevel(lvl: number) {
   if (lvl >= 101) return { rank: 'S', title: 'Shadow Monarch' };
@@ -28,239 +25,109 @@ function rankFromLevel(lvl: number) {
   return           { rank: 'E', title: 'E-Rank Hunter' };
 }
 
+interface StatusHeaderProps {
+  level: number;
+  expProgress: number;
+  totalXP: number;
+  nextLevelXP: number;
+}
+
 export function StatusHeader({ level, expProgress, totalXP, nextLevelXP }: StatusHeaderProps) {
+  const { colors: C, isDark } = useTheme();
   const { rank, title } = rankFromLevel(level);
   const barWidth = useSharedValue(0);
-  const mounted = useRef(false);
 
   useEffect(() => {
-    mounted.current = true;
     barWidth.value = withTiming(expProgress, {
       duration: 1100,
       easing: Easing.out(Easing.cubic),
     });
   }, [expProgress]);
 
-  const barStyle = useAnimatedStyle(() => ({
-    width: `${barWidth.value}%`,
-  }));
-
-  const rankColor = RANK_COLOR[rank] ?? C.rankE;
+  const barStyle = useAnimatedStyle(() => ({ width: `${barWidth.value}%` }));
+  const rankColor = (isDark ? RANK_COLORS_DARK : RANK_COLORS_LIGHT)[rank] ?? C.rankE;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: C.void, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }]}>
+      <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
 
-      {/* ── Top XP line ── */}
-      <View style={styles.xpTrack}>
-        <Animated.View style={[styles.xpFill, barStyle]} />
-      </View>
-
-      {/* ── Hero card ── */}
-      <View style={styles.card}>
-
-        {/* Status row */}
         <View style={styles.statusRow}>
-          <View style={styles.activeDot} />
-          <Text style={styles.statusText}>SYSTEM STATUS: ACTIVE</Text>
+          <View style={[styles.activeDot, { backgroundColor: C.success }]} />
+          <Text style={[styles.statusText, { color: C.textMut }]}>Active · Today</Text>
           <View style={{ flex: 1 }} />
-          <View style={[styles.rankBadge, { borderColor: rankColor + '55' , backgroundColor: rankColor + '18' }]}>
-            <Text style={[styles.rankBadgeText, { color: rankColor }]}>{rank}-RANK</Text>
+          <View style={[styles.rankBadge, { borderColor: rankColor + '40', backgroundColor: rankColor + '12' }]}>
+            <Text style={[styles.rankBadgeText, { color: rankColor }]}>{rank}-Rank</Text>
           </View>
         </View>
 
-        {/* Hero row */}
+        <View style={[styles.divider, { backgroundColor: C.border }]} />
+
         <View style={styles.heroRow}>
-          <View style={styles.avatarWrap}>
-            <Text style={styles.avatarText}>U</Text>
+          <View style={[styles.avatarWrap, { backgroundColor: C.blueDim, borderColor: C.blueBorder }]}>
+            <Text style={[styles.avatarText, { color: C.blue }]}>U</Text>
           </View>
-
           <View style={styles.nameCol}>
-            <Text style={styles.hunterName}>Usher</Text>
-            <Text style={styles.hunterTitle}>{title}</Text>
+            <Text style={[styles.hunterName, { color: C.text }]}>Usher</Text>
+            <Text style={[styles.hunterTitle, { color: C.textMut }]}>{title}</Text>
           </View>
-
           <View style={styles.levelCol}>
-            <Text style={styles.levelLabel}>LVL.</Text>
-            <Text style={styles.levelNum}>{String(level).padStart(2, '0')}</Text>
+            <Text style={[styles.levelLabel, { color: C.textMut }]}>LVL</Text>
+            <Text style={[styles.levelNum, { color: C.blue }]}>{String(level).padStart(2, '0')}</Text>
           </View>
         </View>
 
-        {/* XP row */}
         <View style={styles.xpSection}>
           <View style={styles.xpHeader}>
-            <Text style={styles.xpLabel}>EXP</Text>
-            <Text style={styles.xpValue}>{totalXP} / {nextLevelXP}</Text>
-            <View style={{ flex:1 }} />
-            <Text style={styles.xpPct}>{Math.round(expProgress)}%</Text>
+            <Text style={[styles.xpLabel, { color: C.textMut }]}>EXP</Text>
+            <Text style={[styles.xpValue, { color: C.textMut }]}>{totalXP} / {nextLevelXP}</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={[styles.xpPct, { color: C.blue }]}>{Math.round(expProgress)}%</Text>
           </View>
-          <View style={styles.xpBar}>
-            <Animated.View style={[styles.xpBarFill, barStyle]} />
+          <View style={[styles.xpBar, { backgroundColor: C.surface2 }]}>
+            <Animated.View style={[styles.xpBarFill, { backgroundColor: C.blue }, barStyle]} />
           </View>
         </View>
-
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: C.void,
-  },
-  xpTrack: {
-    height: 2,
-    backgroundColor: C.surface2,
-  },
-  xpFill: {
-    height: '100%',
-    backgroundColor: C.cyan,
-    shadowColor: C.cyan,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 6,
-  },
+  container: {},
   card: {
-    margin: 16,
-    marginTop: 14,
     borderRadius: 16,
-    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.border,
     padding: 18,
-    gap: 16,
-  },
-
-  // Status row
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.cyan,
-    shadowColor: C.cyan,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
-  },
-  statusText: {
-    fontFamily: F.mono,
-    fontSize: 9,
-    color: C.textMut,
-    letterSpacing: 2,
-  },
-  rankBadge: {
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  rankBadgeText: {
-    fontFamily: F.monoBold,
-    fontSize: 9,
-    letterSpacing: 1.5,
-  },
-
-  // Hero row
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  activeDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontFamily: F.medium, fontSize: 11, letterSpacing: 0.2 },
+  rankBadge: { borderWidth: 1, borderRadius: 5, paddingHorizontal: 9, paddingVertical: 3 },
+  rankBadgeText: { fontFamily: F.monoBold, fontSize: 9, letterSpacing: 1.5 },
+  divider: { height: 1 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatarWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: C.blueDim,
-    borderWidth: 1,
-    borderColor: C.blueBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 48, height: 48, borderRadius: 12,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: {
-    fontFamily: F.monoBold,
-    fontSize: 24,
-    color: C.blue,
-  },
-  nameCol: {
-    flex: 1,
-    gap: 3,
-  },
-  hunterName: {
-    fontFamily: F.bold,
-    fontSize: 22,
-    color: C.text,
-    letterSpacing: -0.3,
-  },
-  hunterTitle: {
-    fontFamily: F.mono,
-    fontSize: 10,
-    color: C.textMut,
-    letterSpacing: 1.5,
-  },
-  levelCol: {
-    alignItems: 'flex-end',
-  },
-  levelLabel: {
-    fontFamily: F.mono,
-    fontSize: 9,
-    color: C.textMut,
-    letterSpacing: 2,
-  },
-  levelNum: {
-    fontFamily: F.monoBold,
-    fontSize: 44,
-    color: C.blue,
-    lineHeight: 48,
-    letterSpacing: -2,
-    textShadowColor: C.blue,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
-  },
-
-  // XP section
-  xpSection: {
-    gap: 8,
-  },
-  xpHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  xpLabel: {
-    fontFamily: F.monoBold,
-    fontSize: 9,
-    color: C.cyan,
-    letterSpacing: 2,
-  },
-  xpValue: {
-    fontFamily: F.mono,
-    fontSize: 9,
-    color: C.textMut,
-    letterSpacing: 1,
-  },
-  xpPct: {
-    fontFamily: F.monoBold,
-    fontSize: 10,
-    color: C.cyan,
-    letterSpacing: 1,
-  },
-  xpBar: {
-    height: 4,
-    backgroundColor: C.surface2,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  xpBarFill: {
-    height: '100%',
-    backgroundColor: C.cyan,
-    borderRadius: 2,
-    shadowColor: C.cyan,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-  },
+  avatarText: { fontFamily: F.bold, fontSize: 20 },
+  nameCol: { flex: 1, gap: 2 },
+  hunterName: { fontFamily: F.bold, fontSize: 20, letterSpacing: -0.3 },
+  hunterTitle: { fontFamily: F.regular, fontSize: 11, letterSpacing: 0.2 },
+  levelCol: { alignItems: 'flex-end' },
+  levelLabel: { fontFamily: F.mono, fontSize: 8, letterSpacing: 2 },
+  levelNum: { fontFamily: F.monoBold, fontSize: 38, lineHeight: 42, letterSpacing: -2 },
+  xpSection: { gap: 7 },
+  xpHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  xpLabel: { fontFamily: F.monoBold, fontSize: 9, letterSpacing: 2 },
+  xpValue: { fontFamily: F.mono, fontSize: 9, letterSpacing: 0.5 },
+  xpPct: { fontFamily: F.semiBold, fontSize: 11 },
+  xpBar: { height: 5, borderRadius: 3, overflow: 'hidden' },
+  xpBarFill: { height: '100%', borderRadius: 3 },
 });

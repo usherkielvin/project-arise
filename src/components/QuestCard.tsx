@@ -1,17 +1,25 @@
 /**
- * QuestCard — Clean quest row with subtle surface background.
+ * QuestCard — Themed quest/todo row (used in Home screen).
  */
 import React, { useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
-  withTiming, withSpring, withSequence,
+  withTiming, withSequence, Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { C, RANK_COLOR } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { F } from '../theme/fonts';
+import { Check } from 'lucide-react-native';
 
 type QuestRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+
+const RANK_COLORS_LIGHT: Record<QuestRank, string> = {
+  E:'#94A3B8', D:'#10B981', C:'#0891B2', B:'#4F46E5', A:'#7C3AED', S:'#D97706',
+};
+const RANK_COLORS_DARK: Record<QuestRank, string> = {
+  E:'#64748B', D:'#34D399', C:'#22D3EE', B:'#818CF8', A:'#A78BFA', S:'#FBBF24',
+};
 
 interface QuestProps {
   title: string;
@@ -24,16 +32,21 @@ interface QuestProps {
   onPress: () => void;
 }
 
-export function QuestCard({ title, description, category, xp, stat = 'INT', rank = 'E', isCompleted, onPress }: QuestProps) {
-  const rankColor = RANK_COLOR[rank] ?? C.rankE;
-  const leftBarW = useSharedValue(0);
-  const rowOpacity = useSharedValue(1);
-  const rowScale = useSharedValue(1);
+export function QuestCard({
+  title, description, category, xp,
+  stat = 'INT', rank = 'E', isCompleted, onPress,
+}: QuestProps) {
+  const { colors: C, isDark } = useTheme();
+  const rankColor = (isDark ? RANK_COLORS_DARK : RANK_COLORS_LIGHT)[rank];
+
+  const rowOpacity  = useSharedValue(1);
+  const rowScale    = useSharedValue(1);
+  const checkScale  = useSharedValue(0);
 
   useEffect(() => {
     if (isCompleted) {
-      leftBarW.value = withTiming(3, { duration: 350 });
-      rowOpacity.value = withTiming(0.48, { duration: 400 });
+      rowOpacity.value  = withTiming(0.45, { duration: 300, easing: Easing.out(Easing.cubic) });
+      checkScale.value  = withTiming(1,    { duration: 200, easing: Easing.out(Easing.cubic) });
     }
   }, [isCompleted]);
 
@@ -41,57 +54,66 @@ export function QuestCard({ title, description, category, xp, stat = 'INT', rank
     if (isCompleted) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     rowScale.value = withSequence(
-      withSpring(0.985, { damping: 14 }),
-      withSpring(1.0,   { damping: 16 })
+      withTiming(0.97, { duration: 70, easing: Easing.out(Easing.cubic) }),
+      withTiming(1.0,  { duration: 120, easing: Easing.out(Easing.cubic) })
     );
     onPress();
   };
 
-  const rowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: rowScale.value }],
-    opacity: rowOpacity.value,
-  }));
-
-  const barStyle = useAnimatedStyle(() => ({
-    width: leftBarW.value,
-  }));
+  const rowAnim   = useAnimatedStyle(() => ({ transform: [{ scale: rowScale.value }], opacity: rowOpacity.value }));
+  const checkAnim = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
 
   return (
     <Pressable onPress={handlePress} style={styles.pressable}>
-      <Animated.View style={[styles.row, rowStyle]}>
-        {/* Left accent bar */}
-        <Animated.View style={[styles.leftBar, barStyle, { backgroundColor: C.blue }]} />
+      <Animated.View style={[
+        styles.row,
+        { backgroundColor: C.surface, borderBottomColor: C.border },
+        rowAnim,
+      ]}>
+        {/* Checkbox */}
+        <View style={[
+          styles.checkbox,
+          { borderColor: isCompleted ? C.blue : C.borderMid },
+          isCompleted && { backgroundColor: C.blue },
+        ]}>
+          <Animated.View style={checkAnim}>
+            <Check size={11} color="#fff" strokeWidth={3} />
+          </Animated.View>
+        </View>
 
         {/* Content */}
         <View style={styles.content}>
-          {/* Top meta */}
-          <View style={styles.metaRow}>
-            <View style={[styles.rankDot, { backgroundColor: rankColor }]} />
-            <Text style={[styles.rankLabel, { color: rankColor }]}>{rank}</Text>
-            <Text style={styles.metaSep}>·</Text>
-            <Text style={styles.category}>{category.toUpperCase()}</Text>
-            <View style={{ flex: 1 }} />
-            <View style={[styles.statChip, isCompleted && styles.statChipDone]}>
-              <Text style={[styles.statText, isCompleted && { color: C.blue }]}>{stat}</Text>
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={[styles.title, isCompleted && styles.titleDone]} numberOfLines={2}>
+          <Text
+            style={[
+              styles.title,
+              { color: C.text },
+              isCompleted && { color: C.textMut, textDecorationLine: 'line-through' },
+            ]}
+            numberOfLines={2}
+          >
             {title}
           </Text>
 
-          {/* Description */}
           {description && !isCompleted && (
-            <Text style={styles.desc} numberOfLines={1}>{description}</Text>
+            <Text style={[styles.desc, { color: C.textMut }]} numberOfLines={1}>
+              {description}
+            </Text>
           )}
 
-          {/* Bottom */}
-          <View style={styles.bottomRow}>
-            <Text style={styles.xp}>+{xp} XP</Text>
-            {isCompleted && (
-              <Text style={styles.lockedIn}>⟳  LOCKED IN</Text>
-            )}
+          <View style={styles.metaRow}>
+            <View style={[
+              styles.categoryPill,
+              { backgroundColor: rankColor + '14', borderColor: rankColor + '30' },
+            ]}>
+              <View style={[styles.rankDot, { backgroundColor: rankColor }]} />
+              <Text style={[styles.categoryText, { color: rankColor }]}>
+                {rank} · {category.toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <Text style={[styles.xpBadge, { color: isCompleted ? C.textMut : C.blue }]}>
+              +{xp} XP
+            </Text>
           </View>
         </View>
       </Animated.View>
@@ -100,99 +122,67 @@ export function QuestCard({ title, description, category, xp, stat = 'INT', rank
 }
 
 const styles = StyleSheet.create({
-  pressable: {
-    marginBottom: 8,
-  },
+  pressable: {},
   row: {
     flexDirection: 'row',
-    borderRadius: 12,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    gap: 13,
   },
-  leftBar: {
-    width: 0,
-    backgroundColor: C.blue,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
   },
   content: {
     flex: 1,
-    padding: 14,
-    gap: 7,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rankDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  rankLabel: {
-    fontFamily: F.monoBold,
-    fontSize: 9,
-    letterSpacing: 1,
-  },
-  metaSep: {
-    color: C.textFnt,
-    fontSize: 10,
-  },
-  category: {
-    fontFamily: F.mono,
-    fontSize: 9,
-    color: C.textMut,
-    letterSpacing: 1.5,
-  },
-  statChip: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  statChipDone: {
-    borderColor: C.blueBorder,
-    backgroundColor: C.blueDim,
-  },
-  statText: {
-    fontFamily: F.mono,
-    fontSize: 8,
-    color: C.textMut,
-    letterSpacing: 1,
+    gap: 5,
   },
   title: {
-    fontFamily: F.semiBold,
+    fontFamily: F.medium,
     fontSize: 15,
-    color: C.text,
-    lineHeight: 21,
-    letterSpacing: -0.2,
-  },
-  titleDone: {
-    color: C.textMut,
+    lineHeight: 22,
+    letterSpacing: -0.1,
   },
   desc: {
     fontFamily: F.regular,
     fontSize: 12,
-    color: C.textMut,
     lineHeight: 17,
   },
-  bottomRow: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    marginTop: 2,
   },
-  xp: {
-    fontFamily: F.monoBold,
-    fontSize: 11,
-    color: C.gold,
-    letterSpacing: 1,
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
   },
-  lockedIn: {
+  rankDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  categoryText: {
     fontFamily: F.mono,
     fontSize: 9,
-    color: C.blue,
-    letterSpacing: 1.5,
+    letterSpacing: 0.5,
+  },
+  xpBadge: {
+    fontFamily: F.semiBold,
+    fontSize: 11,
   },
 });

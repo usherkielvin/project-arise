@@ -1,77 +1,159 @@
-// ─── Project Arise · Monarch Design Tokens v3 ──────────────────────────────
-// Modern slate-dark palette — lighter, visible surface layers, vibrant accents.
-// Inspired by Linear.app dark mode + Solo Leveling System UI.
+// ─── Project Arise · Design Tokens ──────────────────────────────────────────
+// Both light and dark palettes share the same shape (Colors type).
+// Components use useTheme() to get the active palette.
 
-export const C = {
-  // ── Backgrounds (readable slate-dark, not cave black) ──
-  void:     '#0C0E1A',   // Slate-black with faint indigo undertone
-  surface:  '#141824',   // Card / panel layer
-  surface2: '#1C2236',   // Elevated / input layer
-  surface3: '#222840',   // Hover / pressed state
+export interface Colors {
+  // Backgrounds
+  void:     string;
+  surface:  string;
+  surface2: string;
+  surface3: string;
+  // Accent
+  blue:       string;
+  cyan:       string;
+  violet:     string;
+  blueDim:    string;
+  blueBorder: string;
+  blueGlow:   string;
+  cyanDim:    string;
+  cyanBorder: string;
+  // Borders
+  border:      string;
+  borderMid:   string;
+  borderFocus: string;
+  // Stat colors
+  statInt: string;
+  statPer: string;
+  statStr: string;
+  statVit: string;
+  // Bars
+  hp: string; hpDark: string;
+  mp: string; mpDark: string;
+  xp: string; xpDark: string;
+  // Rank
+  rankE: string; rankD: string; rankC: string;
+  rankB: string; rankA: string; rankS: string;
+  // Rarity
+  common: string; rare: string; epic: string; legendary: string;
+  // Feedback
+  success: string; warning: string; penalty: string; gold: string;
+  // Typography
+  text:    string;
+  textSub: string;
+  textMut: string;
+  textFnt: string;
+  // Habit categories
+  habitHealth: string;
+  habitMind:   string;
+  habitWork:   string;
+  habitSocial: string;
+}
 
-  // ── Primary accent — System Indigo ──
-  blue:       '#7C83FD',                   // Vivid indigo-violet
-  cyan:       '#38BDF8',                   // Sky-cyan for XP / progress
-  violet:     '#A78BFA',                   // Soft violet — secondary
-  blueDim:    'rgba(124, 131, 253, 0.10)',
-  blueBorder: 'rgba(124, 131, 253, 0.22)',
-  blueGlow:   'rgba(124, 131, 253, 0.42)',
-  cyanDim:    'rgba(56, 189, 248, 0.10)',
-  cyanBorder: 'rgba(56, 189, 248, 0.25)',
+// ─── Light ────────────────────────────────────────────────────────────────────
+export const LIGHT: Colors = {
+  void:     '#FAFAF9',
+  surface:  '#FFFFFF',
+  surface2: '#F4F4F2',
+  surface3: '#EDEDE9',
 
-  // ── Borders ──
-  border:     'rgba(255, 255, 255, 0.07)',
-  borderMid:  'rgba(255, 255, 255, 0.11)',
-  borderFocus:'rgba(124, 131, 253, 0.55)',
+  blue:       '#4F46E5',
+  cyan:       '#0891B2',
+  violet:     '#7C3AED',
+  blueDim:    'rgba(79, 70, 229, 0.07)',
+  blueBorder: 'rgba(79, 70, 229, 0.20)',
+  blueGlow:   'rgba(79, 70, 229, 0.15)',
+  cyanDim:    'rgba(8, 145, 178, 0.08)',
+  cyanBorder: 'rgba(8, 145, 178, 0.20)',
 
-  // ── Per-stat accent colors ──
-  statInt: '#7C83FD',   // Vivid indigo
-  statPer: '#38BDF8',   // Sky cyan
-  statStr: '#FB7185',   // Rose
-  statVit: '#FB923C',   // Amber
+  border:      'rgba(0, 0, 0, 0.07)',
+  borderMid:   'rgba(0, 0, 0, 0.13)',
+  borderFocus: 'rgba(79, 70, 229, 0.45)',
 
-  // ── HP / MP / XP bars ──
-  hp:     '#FB7185',
-  hpDark: 'rgba(251,113,133,0.15)',
-  mp:     '#7C83FD',
-  mpDark: 'rgba(124,131,253,0.15)',
-  xp:     '#38BDF8',
-  xpDark: 'rgba(56,189,248,0.12)',
+  statInt: '#4F46E5',
+  statPer: '#0891B2',
+  statStr: '#DC2626',
+  statVit: '#D97706',
 
-  // ── Rank badge colors ──
-  rankE: '#64748B',
-  rankD: '#34D399',
-  rankC: '#38BDF8',
-  rankB: '#7C83FD',
-  rankA: '#A78BFA',
-  rankS: '#FBBF24',
+  hp: '#EF4444', hpDark: 'rgba(239,68,68,0.12)',
+  mp: '#4F46E5', mpDark: 'rgba(79,70,229,0.10)',
+  xp: '#0891B2', xpDark: 'rgba(8,145,178,0.10)',
 
-  // ── Rarity ──
-  common:    '#94A3B8',
-  rare:      '#38BDF8',
-  epic:      '#A78BFA',
-  legendary: '#FBBF24',
+  rankE: '#94A3B8', rankD: '#10B981', rankC: '#0891B2',
+  rankB: '#4F46E5', rankA: '#7C3AED', rankS: '#D97706',
 
-  // ── Feedback ──
-  success: '#34D399',
-  warning: '#FB923C',
-  penalty: '#FB7185',
-  gold:    '#FBBF24',
+  common: '#64748B', rare: '#0891B2', epic: '#7C3AED', legendary: '#D97706',
 
-  // ── Typography ──
-  text:    '#EFF2FF',                    // Slightly cool white
-  textSub: 'rgba(239, 242, 255, 0.60)',
-  textMut: 'rgba(239, 242, 255, 0.35)',
-  textFnt: 'rgba(239, 242, 255, 0.12)',
-} as const;
+  success: '#10B981', warning: '#F59E0B', penalty: '#EF4444', gold: '#D97706',
+
+  text:    '#111827',
+  textSub: 'rgba(17, 24, 39, 0.60)',
+  textMut: 'rgba(17, 24, 39, 0.38)',
+  textFnt: 'rgba(17, 24, 39, 0.16)',
+
+  habitHealth: '#10B981',
+  habitMind:   '#4F46E5',
+  habitWork:   '#D97706',
+  habitSocial: '#EC4899',
+};
+
+// ─── Dark ─────────────────────────────────────────────────────────────────────
+export const DARK: Colors = {
+  void:     '#0C0D12',
+  surface:  '#14151A',
+  surface2: '#1C1D24',
+  surface3: '#242530',
+
+  blue:       '#6366F1',
+  cyan:       '#22D3EE',
+  violet:     '#A78BFA',
+  blueDim:    'rgba(99, 102, 241, 0.12)',
+  blueBorder: 'rgba(99, 102, 241, 0.28)',
+  blueGlow:   'rgba(99, 102, 241, 0.40)',
+  cyanDim:    'rgba(34, 211, 238, 0.10)',
+  cyanBorder: 'rgba(34, 211, 238, 0.25)',
+
+  border:      'rgba(255, 255, 255, 0.07)',
+  borderMid:   'rgba(255, 255, 255, 0.13)',
+  borderFocus: 'rgba(99, 102, 241, 0.55)',
+
+  statInt: '#818CF8',
+  statPer: '#22D3EE',
+  statStr: '#F87171',
+  statVit: '#FBBF24',
+
+  hp: '#F87171', hpDark: 'rgba(248,113,113,0.15)',
+  mp: '#818CF8', mpDark: 'rgba(129,140,248,0.15)',
+  xp: '#22D3EE', xpDark: 'rgba(34,211,238,0.12)',
+
+  rankE: '#64748B', rankD: '#34D399', rankC: '#22D3EE',
+  rankB: '#818CF8', rankA: '#A78BFA', rankS: '#FBBF24',
+
+  common: '#94A3B8', rare: '#22D3EE', epic: '#A78BFA', legendary: '#FBBF24',
+
+  success: '#34D399', warning: '#FBBF24', penalty: '#F87171', gold: '#FBBF24',
+
+  text:    '#ECEDF5',
+  textSub: 'rgba(236, 237, 245, 0.62)',
+  textMut: 'rgba(236, 237, 245, 0.38)',
+  textFnt: 'rgba(236, 237, 245, 0.14)',
+
+  habitHealth: '#34D399',
+  habitMind:   '#818CF8',
+  habitWork:   '#FBBF24',
+  habitSocial: '#F472B6',
+};
+
+// ─── Legacy (kept for any direct imports still in flight) ────────────────────
+export const C = LIGHT;
 
 export type Rarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
 
-export const RANK_COLOR: Record<string, string> = {
-  E: C.rankE, D: C.rankD, C: C.rankC,
-  B: C.rankB, A: C.rankA, S: C.rankS,
+export const RANK_COLOR_LIGHT: Record<string, string> = {
+  E: LIGHT.rankE, D: LIGHT.rankD, C: LIGHT.rankC,
+  B: LIGHT.rankB, A: LIGHT.rankA, S: LIGHT.rankS,
 };
-
-export const RARITY_COLOR: Record<Rarity, string> = {
-  Common: C.common, Rare: C.rare, Epic: C.epic, Legendary: C.legendary,
+export const RANK_COLOR_DARK: Record<string, string> = {
+  E: DARK.rankE, D: DARK.rankD, C: DARK.rankC,
+  B: DARK.rankB, A: DARK.rankA, S: DARK.rankS,
 };
+export const RANK_COLOR = RANK_COLOR_LIGHT; // legacy alias
