@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { LayoutDashboard, User, BookOpen, Flame } from 'lucide-react-native';
+import { LayoutDashboard, User, BookOpen, Flame, FileText } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -61,6 +61,13 @@ export default function TabLayout() {
         options={{
           title: 'Quests',
           tabBarIcon: ({ color }) => <BookOpen color={color} size={20} strokeWidth={1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="journal"
+        options={{
+          title: 'Journal',
+          tabBarIcon: ({ color }) => <FileText color={color} size={20} strokeWidth={1.8} />,
         }}
       />
       <Tabs.Screen

@@ -19,6 +19,11 @@ export interface Habit {
   streak: number; bestStreak: number; xpPerDay: number; week: boolean[];
 }
 
+export interface JournalEntry {
+  date: string; // YYYY-MM-DD
+  content: string;
+}
+
 // Category → stat affinity mapping (exported for screens)
 export const CATEGORY_STAT: Record<string, keyof StatPoints> = {
   'Trading': 'PER', 'Development': 'INT', 'NU MOA': 'INT', 'Health': 'STR',
@@ -33,6 +38,8 @@ interface SystemState {
   statPoints: StatPoints;
   quests: Quest[];
   habits: Habit[];
+  journals: JournalEntry[];       // daily logs
+  categories: string[];           // user-managed quest categories
   lastLoginDate: string | null;
   penaltyMode: boolean;
 
@@ -43,6 +50,11 @@ interface SystemState {
   addHabit:    (h: Pick<Habit, 'title' | 'category' | 'xpPerDay'>) => void;
   deleteHabit: (id: number) => void;
   toggleHabit: (id: number) => { leveledUp: boolean; newLevel: number };
+
+  addCategory:    (name: string) => void;
+  deleteCategory: (name: string) => void;
+
+  saveJournal:    (date: string, content: string) => void;
 
   checkMidnightReset: () => void;
   clearPenalty: () => void;
@@ -78,6 +90,8 @@ export const useSystemStore = create<SystemState>()(
       statPoints: { INT: 0, PER: 0, STR: 0, VIT: 0 },
       quests: INITIAL_QUESTS,
       habits: INITIAL_HABITS,
+      journals: [],
+      categories: ['Trading', 'Development', 'NU MOA', 'Health'],
       lastLoginDate: null,
       penaltyMode: false,
 
@@ -93,6 +107,18 @@ export const useSystemStore = create<SystemState>()(
 
       deleteQuest: (id) => set((state) => ({
         quests: state.quests.filter((q) => q.id !== id),
+      })),
+
+      // ── Categories ──────────────────────────────────────────────────────────
+      addCategory: (name) => set((state) => {
+        const trimmed = name.trim();
+        if (!trimmed || state.categories.includes(trimmed)) return state;
+        return { categories: [...state.categories, trimmed] };
+      }),
+
+      deleteCategory: (name) => set((state) => ({
+        categories: state.categories.filter((c) => c !== name),
+        // Move orphaned quests to first remaining category or keep as-is
       })),
 
       toggleQuest: (id) => {
@@ -170,6 +196,20 @@ export const useSystemStore = create<SystemState>()(
         });
         return result;
       },
+
+      // ── Journal ─────────────────────────────────────────────────────────────
+      saveJournal: (date, content) => set((state) => {
+        const existing = state.journals.findIndex(j => j.date === date);
+        if (existing >= 0) {
+          const next = [...state.journals];
+          if (!content.trim()) next.splice(existing, 1); // remove if empty
+          else next[existing] = { ...next[existing], content };
+          return { journals: next };
+        } else {
+          if (!content.trim()) return state;
+          return { journals: [...state.journals, { date, content }] };
+        }
+      }),
 
       // ── Reset ────────────────────────────────────────────────────────────────
       checkMidnightReset: () => set((state) => {

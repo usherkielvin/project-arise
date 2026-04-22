@@ -5,7 +5,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   ScrollView, View, Text, Pressable, TextInput,
-  StyleSheet, Animated as RNAnimated, Keyboard,
+  StyleSheet, Keyboard,
 } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
@@ -15,16 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
-import { Trash2, Check, Plus, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react-native';
+import { Trash2, Check, Plus, X, ArrowUpDown, SlidersHorizontal, ChevronRight } from 'lucide-react-native';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 import { useSystemStore, Quest, QuestRank, CATEGORY_STAT, xpForLevel } from '../../src/store/useSystemStore';
 import { LevelUpModal } from '../../src/components/LevelUpModal';
-
 type SortKey = 'default' | 'xp' | 'rank';
 const RANK_ORDER: Record<QuestRank, number> = { E:0, D:1, C:2, B:3, A:4, S:5 };
-
-const CATEGORIES = ['All', 'Trading', 'Development', 'NU MOA', 'Health'];
+// Categories are now managed in the store — no hardcoded list here.
 
 // ─── Quest Row ────────────────────────────────────────────────────────────────
 const RANK_COLORS: Record<QuestRank, string> = {
@@ -65,14 +63,19 @@ function QuestRow({
 
   return (
     <Animated.View entering={FadeIn.delay(index * 30).duration(220)}>
-      <Pressable onPress={handlePress} onLongPress={() => !quest.completed && onLongPress(quest.id)}>
-        <Animated.View
-          style={[
-            styles.questRow,
-            { backgroundColor: C.surface, borderBottomColor: C.border },
-            rowStyle,
-          ]}
-        >
+      <Pressable
+        onPress={handlePress}
+        onLongPress={() => !quest.completed && onLongPress(quest.id)}
+      >
+        <Animated.View style={[
+          styles.questRow,
+          { backgroundColor: C.surface, borderBottomColor: C.border },
+          isDeleting && { backgroundColor: '#FFF5F5' },
+          rowStyle,
+        ]}>
+          {/* Rank accent bar */}
+          <View style={[styles.rankBar, { backgroundColor: isDeleting ? '#EF4444' : rankColor }]} />
+
           {/* Checkbox */}
           <View style={[
             styles.checkbox,
@@ -92,45 +95,59 @@ function QuestRow({
                 styles.questTitle,
                 { color: C.text },
                 quest.completed && { color: C.textMut, textDecorationLine: 'line-through' },
+                isDeleting && { color: '#EF4444' },
               ]}
             >
               {quest.title}
             </Text>
 
-            {!quest.completed && (
+            {!quest.completed && !isDeleting && quest.description ? (
               <Text style={[styles.questDesc, { color: C.textMut }]} numberOfLines={1}>
                 {quest.description}
               </Text>
-            )}
+            ) : null}
 
-            {/* Meta */}
-            <View style={styles.questMeta}>
-              <View style={[
-                styles.rankPill,
-                { backgroundColor: rankColor + (isDark ? '20' : '14'), borderColor: rankColor + (isDark ? '40' : '28') },
-              ]}>
-                <View style={[styles.rankDot, { backgroundColor: rankColor }]} />
-                <Text style={[styles.rankLabel, { color: rankColor }]}>
-                  {quest.rank}-Rank · {quest.category}
+            {isDeleting ? (
+              <Text style={[styles.questDesc, { color: '#EF4444' }]}>Hold to confirm delete</Text>
+            ) : (
+              <View style={styles.questMeta}>
+                <View style={[
+                  styles.rankPill,
+                  { backgroundColor: rankColor + (isDark ? '20' : '14'), borderColor: rankColor + (isDark ? '40' : '28') },
+                ]}>
+                  <View style={[styles.rankDot, { backgroundColor: rankColor }]} />
+                  <Text style={[styles.rankLabel, { color: rankColor }]}>
+                    {quest.rank}-Rank · {quest.category}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <Text style={[styles.xpLabel, { color: quest.completed ? C.textMut : C.blue }]}>
+                  +{quest.xp} XP
                 </Text>
               </View>
-              <View style={{ flex: 1 }} />
-              <Text style={[
-                styles.xpLabel,
-                { color: quest.completed ? C.textMut : C.blue },
-              ]}>
-                +{quest.xp} XP
-              </Text>
-            </View>
+            )}
           </View>
-          {/* Long-press delete button */}
-          {isDeleting && !quest.completed && (
-            <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onDelete(quest.id); }}
-              style={[styles.deleteBtn, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}
-            >
-              <Trash2 size={14} color="#EF4444" strokeWidth={2} />
-            </Pressable>
+
+          {/* Delete confirm / Trash */}
+          {isDeleting && (
+            <View style={styles.deleteActions}>
+              <Pressable
+                onPress={() => onLongPress(quest.id)}
+                style={[styles.deleteCancelBtn, { borderColor: C.border, backgroundColor: C.surface }]}
+              >
+                <Text style={[styles.deleteBtnText, { color: C.textMut }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  onDelete(quest.id);
+                }}
+                style={styles.deleteConfirmBtn}
+              >
+                <Trash2 size={12} color="#fff" strokeWidth={2} />
+                <Text style={styles.deleteBtnText}>Delete</Text>
+              </Pressable>
+            </View>
           )}
         </Animated.View>
       </Pressable>
@@ -140,9 +157,10 @@ function QuestRow({
 
 // ─── Filter Chip ──────────────────────────────────────────────────────────────
 function FilterChip({
-  label, count, active, onPress,
+  label, count, active, onPress, onLongPress,
 }: {
-  label: string; count: number; active: boolean; onPress: () => void;
+  label: string; count: number; active: boolean;
+  onPress: () => void; onLongPress?: () => void;
 }) {
   const { colors: C } = useTheme();
   const scale = useSharedValue(1);
@@ -159,7 +177,7 @@ function FilterChip({
   const chipStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <Pressable onPress={handlePress}>
+    <Pressable onPress={handlePress} onLongPress={onLongPress}>
       <Animated.View style={[
         styles.chip,
         {
@@ -228,18 +246,23 @@ export default function QuestsScreen() {
   const { colors: C } = useTheme();
   const store = useSystemStore();
   const quests = store.quests;
+  const CATEGORIES = ['All', ...store.categories];  // dynamic from store
 
   const [filter, setFilter]       = useState('All');
   const [sort, setSort]           = useState<SortKey>('default');
   const [showSort, setShowSort]   = useState(false);
   const [addMode, setAddMode]     = useState(false);
   const [newTitle, setNewTitle]   = useState('');
+  const [newDesc, setNewDesc]     = useState('');
+  const [newCat, setNewCat]       = useState('Development');
   const [newRank, setNewRank]     = useState<QuestRank>('E');
   const [newXP, setNewXP]         = useState(50);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [showLvlUp, setShowLvlUp] = useState(false);
   const [lvlUpNum, setLvlUpNum]   = useState(1);
-  const { xpForLevel } = require('../../src/store/useSystemStore');
+  const [addCatMode, setAddCatMode] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [deletingCat, setDeletingCat] = useState<string | null>(null);
 
   const toggle = useCallback((id: number) => {
     const result = store.toggleQuest(id);
@@ -248,22 +271,45 @@ export default function QuestsScreen() {
 
   const addQuest = () => {
     if (!newTitle.trim()) return;
-    const cat  = filter === 'All' ? 'Development' : filter;
+    const cat  = newCat;
     const stat = CATEGORY_STAT[cat] ?? 'INT';
-    store.addQuest({ title: newTitle.trim(), description: '', category: cat, stat, xp: newXP, rank: newRank });
-    setNewTitle(''); setNewRank('E'); setNewXP(50);
+    store.addQuest({ title: newTitle.trim(), description: newDesc.trim(), category: cat, stat, xp: newXP, rank: newRank });
+    setNewTitle(''); setNewDesc(''); setNewRank('E'); setNewXP(50); setNewCat('Development');
     setAddMode(false); Keyboard.dismiss();
+  };
+
+  const openAddModal = () => {
+    // Sync default category to current filter
+    if (filter !== 'All') setNewCat(filter);
+    setAddMode(true);
+    setShowSort(false);
   };
 
   // Counts per category (pending only, for badges)
   const pendingCounts: Record<string, number> = { All: 0 };
-  CATEGORIES.slice(1).forEach(c => { pendingCounts[c] = 0; });
+  store.categories.forEach(c => { pendingCounts[c] = 0; });
   quests.forEach(q => {
     if (!q.completed) {
       pendingCounts['All'] = (pendingCounts['All'] || 0) + 1;
       pendingCounts[q.category] = (pendingCounts[q.category] || 0) + 1;
     }
   });
+
+  const submitNewCategory = () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    store.addCategory(name);
+    setNewCatName('');
+    setAddCatMode(false);
+    Keyboard.dismiss();
+  };
+
+  const handleDeleteCategory = (cat: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    store.deleteCategory(cat);
+    if (filter === cat) setFilter('All');
+    setDeletingCat(null);
+  };
 
   const filtered = filter === 'All' ? quests : quests.filter(q => q.category === filter);
 
@@ -299,21 +345,24 @@ export default function QuestsScreen() {
                 styles.iconBtn,
                 { backgroundColor: showSort ? C.blueDim : C.surface, borderColor: showSort ? C.blue : C.border },
               ]}
-              onPress={() => { setShowSort(v => !v); setAddMode(false); }}
+              onPress={() => { setShowSort(v => !v); setDeletingId(null); }}
             >
               <SlidersHorizontal size={16} color={showSort ? C.blue : C.textMut} strokeWidth={2} />
             </Pressable>
 
-            {/* Add toggle */}
+            {/* Add toggle — rotates to X when open */}
             <Pressable
               style={[
                 styles.iconBtn,
                 { backgroundColor: addMode ? C.blueDim : C.surface, borderColor: addMode ? C.blue : C.border },
               ]}
-              onPress={() => { setAddMode(v => !v); setShowSort(false); }}
+              onPress={() => {
+                if (addMode) { setAddMode(false); Keyboard.dismiss(); }
+                else { openAddModal(); }
+              }}
             >
               {addMode
-                ? <X size={16} color={C.blue} strokeWidth={2} />
+                ? <X size={16} color={C.blue} strokeWidth={2.5} />
                 : <Plus size={16} color={C.textMut} strokeWidth={2} />
               }
             </Pressable>
@@ -327,38 +376,100 @@ export default function QuestsScreen() {
           </Animated.View>
         )}
 
-        {/* Add form */}
+        {/* ── Add Quest inline panel ── */}
         {addMode && (
-          <Animated.View entering={FadeIn.duration(180)} style={styles.addForm}>
-            <TextInput
-              style={[styles.addInput, { backgroundColor: C.surface, borderColor: C.borderFocus, color: C.text }]}
-              placeholder={`Quest title…`}
-              placeholderTextColor={C.textMut}
-              value={newTitle}
-              onChangeText={setNewTitle}
-              autoFocus
-            />
-            {/* Rank picker */}
-            <View style={styles.addPickerRow}>
-              {(['E','D','C','B','A','S'] as QuestRank[]).map(r => (
-                <Pressable key={r} onPress={() => setNewRank(r)}
-                  style={[styles.rankPickerBtn, { borderColor: C.border, backgroundColor: newRank === r ? C.blue : C.surface }]}>
-                  <Text style={[styles.rankPickerText, { color: newRank === r ? '#fff' : C.textMut }]}>{r}</Text>
+          <Animated.View
+            entering={FadeInDown.duration(200).easing(Easing.out(Easing.cubic))}
+            style={[styles.addPanel, { backgroundColor: C.surface, borderColor: C.border }]}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ gap: 12, paddingBottom: 4 }}
+            >
+              {/* Title */}
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: C.void, borderColor: C.borderFocus, color: C.text }]}
+                placeholder="Quest title…"
+                placeholderTextColor={C.textMut}
+                value={newTitle}
+                onChangeText={setNewTitle}
+                autoFocus
+              />
+
+              {/* Description */}
+              <TextInput
+                style={[styles.modalInput, styles.modalInputMulti, { backgroundColor: C.void, borderColor: C.border, color: C.text }]}
+                placeholder="Description (optional)…"
+                placeholderTextColor={C.textMut}
+                value={newDesc}
+                onChangeText={setNewDesc}
+                multiline
+                numberOfLines={2}
+              />
+
+              {/* Category */}
+              <Text style={[styles.panelLabel, { color: C.textMut }]}>Category</Text>
+              <View style={styles.modalPickerRow}>
+                {CATEGORIES.slice(1).map(cat => {
+                  const active = newCat === cat;
+                  return (
+                    <Pressable key={cat} onPress={() => setNewCat(cat)}
+                      style={[styles.modalCatBtn, { borderColor: active ? C.blue : C.border, backgroundColor: active ? C.blueDim : C.void }]}>
+                      <Text style={[styles.modalCatText, { color: active ? C.blue : C.textMut }]}>{cat}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Rank */}
+              <Text style={[styles.panelLabel, { color: C.textMut }]}>Rank</Text>
+              <View style={styles.modalPickerRow}>
+                {(Object.entries(RANK_COLORS) as [QuestRank, string][]).map(([r, color]) => {
+                  const active = newRank === r;
+                  return (
+                    <Pressable key={r} onPress={() => setNewRank(r)}
+                      style={[styles.modalRankBtn, {
+                        borderColor: active ? color : C.border,
+                        backgroundColor: active ? color + '22' : C.void,
+                      }]}>
+                      <Text style={[styles.modalRankText, { color: active ? color : C.textMut }]}>{r}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* XP + Stat affinity row */}
+              <Text style={[styles.panelLabel, { color: C.textMut }]}>XP Reward</Text>
+              <View style={styles.modalPickerRow}>
+                {[25, 50, 75, 100, 150].map(xp => (
+                  <Pressable key={xp} onPress={() => setNewXP(xp)}
+                    style={[styles.modalXPBtn, {
+                      borderColor: newXP === xp ? C.blue : C.border,
+                      backgroundColor: newXP === xp ? C.blueDim : C.void,
+                    }]}>
+                    <Text style={[styles.modalXPText, { color: newXP === xp ? C.blue : C.textMut }]}>+{xp}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Stat affinity + Submit in same row */}
+              <View style={styles.panelFooter}>
+                <View style={[styles.statAffinityBadge, { backgroundColor: C.blueDim, borderColor: C.blueBorder }]}>
+                  <Text style={[styles.statAffinityVal, { color: C.blue }]}>
+                    [{CATEGORY_STAT[newCat] ?? 'INT'}]
+                  </Text>
+                  <Text style={[styles.statAffinityLabel, { color: C.blue }]}>affinity</Text>
+                </View>
+                <Pressable
+                  style={[styles.panelSubmit, { backgroundColor: newTitle.trim() ? C.blue : C.surface2, flex: 1 }]}
+                  onPress={addQuest}
+                  disabled={!newTitle.trim()}
+                >
+                  <Text style={[styles.panelSubmitText, { color: newTitle.trim() ? '#fff' : C.textMut }]}>Add Quest</Text>
                 </Pressable>
-              ))}
-            </View>
-            {/* XP picker */}
-            <View style={styles.addPickerRow}>
-              {[25, 50, 75, 100].map(xp => (
-                <Pressable key={xp} onPress={() => setNewXP(xp)}
-                  style={[styles.xpPickerBtn, { borderColor: newXP === xp ? C.blue : C.border, backgroundColor: newXP === xp ? C.blueDim : C.surface }]}>
-                  <Text style={[styles.xpPickerText, { color: newXP === xp ? C.blue : C.textMut }]}>+{xp}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable style={[styles.addConfirm, { backgroundColor: C.blue }]} onPress={addQuest}>
-              <Text style={styles.addConfirmText}>Add Quest</Text>
-            </Pressable>
+              </View>
+            </ScrollView>
           </Animated.View>
         )}
       </View>
@@ -370,15 +481,86 @@ export default function QuestsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterBar}
         >
-          {CATEGORIES.map(cat => (
-            <FilterChip
-              key={cat}
-              label={cat}
-              count={pendingCounts[cat] ?? 0}
-              active={cat === filter}
-              onPress={() => setFilter(cat)}
-            />
-          ))}
+          {/* "All" chip — never deletable */}
+          <FilterChip
+            label="All"
+            count={pendingCounts['All'] ?? 0}
+            active={'All' === filter}
+            onPress={() => { setFilter('All'); setDeletingCat(null); }}
+          />
+
+          {/* Dynamic category chips */}
+          {store.categories.map(cat => {
+            const isDeleteMode = deletingCat === cat;
+            return (
+              <View key={cat} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <FilterChip
+                  label={cat}
+                  count={pendingCounts[cat] ?? 0}
+                  active={cat === filter && !isDeleteMode}
+                  onPress={() => {
+                    if (isDeleteMode) { setDeletingCat(null); return; }
+                    setFilter(cat);
+                  }}
+                  onLongPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setDeletingCat(prev => prev === cat ? null : cat);
+                  }}
+                />
+                {isDeleteMode && (
+                  <Animated.View entering={FadeIn.duration(150)} style={{ flexDirection: 'row', gap: 3 }}>
+                    <Pressable
+                      onPress={() => setDeletingCat(null)}
+                      style={[styles.catActionBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+                    >
+                      <X size={10} color={C.textMut} strokeWidth={2.5} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleDeleteCategory(cat)}
+                      style={[styles.catActionBtn, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}
+                    >
+                      <Trash2 size={10} color="#EF4444" strokeWidth={2.5} />
+                    </Pressable>
+                  </Animated.View>
+                )}
+              </View>
+            );
+          })}
+
+          {/* Add category button / inline input */}
+          {addCatMode ? (
+            <Animated.View entering={FadeIn.duration(150)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TextInput
+                style={[styles.catInput, { backgroundColor: C.surface, borderColor: C.borderFocus, color: C.text }]}
+                placeholder="Category name…"
+                placeholderTextColor={C.textMut}
+                value={newCatName}
+                onChangeText={setNewCatName}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={submitNewCategory}
+              />
+              <Pressable
+                onPress={submitNewCategory}
+                style={[styles.catActionBtn, { backgroundColor: C.blue, borderColor: C.blue }]}
+              >
+                <ChevronRight size={10} color="#fff" strokeWidth={2.5} />
+              </Pressable>
+              <Pressable
+                onPress={() => { setAddCatMode(false); setNewCatName(''); Keyboard.dismiss(); }}
+                style={[styles.catActionBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+              >
+                <X size={10} color={C.textMut} strokeWidth={2.5} />
+              </Pressable>
+            </Animated.View>
+          ) : (
+            <Pressable
+              onPress={() => { setAddCatMode(true); setDeletingCat(null); }}
+              style={[styles.catAddBtn, { borderColor: C.border, backgroundColor: C.surface }]}
+            >
+              <Plus size={11} color={C.textMut} strokeWidth={2} />
+            </Pressable>
+          )}
         </ScrollView>
 
         {/* Active sort indicator */}
@@ -543,6 +725,20 @@ const styles = StyleSheet.create({
     fontFamily: F.semiBold,
     fontSize: 14,
     color: '#fff',
+  },
+
+  // Category Add / Edit inline
+  catAddBtn: {
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', marginLeft: 4,
+  },
+  catInput: {
+    height: 32, width: 120, borderRadius: 16, borderWidth: 1,
+    paddingHorizontal: 12, fontFamily: F.regular, fontSize: 13,
+  },
+  catActionBtn: {
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
 
   // Sort picker
@@ -746,23 +942,63 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Delete button
-  deleteBtn: {
-    width: 36, height: 36, borderRadius: 9, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  // Delete
+  deleteActions: {
+    flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 0,
   },
+  deleteCancelBtn: {
+    height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deleteConfirmBtn: {
+    height: 32, paddingHorizontal: 10, borderRadius: 8,
+    backgroundColor: '#EF4444',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+  },
+  deleteBtnText: { fontFamily: F.semiBold, fontSize: 11, color: '#fff' },
+  rankBar: { width: 3, alignSelf: 'stretch', borderRadius: 2, marginRight: 2 },
 
-  // Add form
-  addForm: { gap: 10, marginTop: 4 },
-  addPickerRow: { flexDirection: 'row', gap: 6 },
-  rankPickerBtn: {
-    flex: 1, height: 32, borderRadius: 7, borderWidth: 1,
+  // Inline add panel
+  addPanel: {
+    borderRadius: 14, borderWidth: 1,
+    marginTop: 10, padding: 14, maxHeight: 480,
+  },
+  panelLabel: {
+    fontFamily: F.medium, fontSize: 10, letterSpacing: 0.8,
+    textTransform: 'uppercase', marginBottom: -4,
+  },
+  panelFooter: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 2 },
+  panelSubmit: {
+    height: 44, borderRadius: 11,
     alignItems: 'center', justifyContent: 'center',
   },
-  rankPickerText: { fontFamily: F.semiBold, fontSize: 11 },
-  xpPickerBtn: {
-    flex: 1, height: 32, borderRadius: 7, borderWidth: 1,
+  panelSubmitText: { fontFamily: F.semiBold, fontSize: 14 },
+  statAffinityBadge: {
+    height: 44, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', gap: 2,
+  },
+  statAffinityVal: { fontFamily: F.monoBold, fontSize: 12, letterSpacing: 1 },
+  statAffinityLabel: { fontFamily: F.regular, fontSize: 9, letterSpacing: 0.3 },
+
+  // Shared input / pickers (used by inline panel)
+  modalInput: {
+    height: 44, borderRadius: 10, borderWidth: 1.5,
+    paddingHorizontal: 13, fontFamily: F.regular, fontSize: 15,
+  },
+  modalInputMulti: { height: 64, paddingTop: 10, textAlignVertical: 'top' },
+  modalPickerRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  modalCatBtn: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1,
+  },
+  modalCatText: { fontFamily: F.medium, fontSize: 12 },
+  modalRankBtn: {
+    flex: 1, height: 34, borderRadius: 8, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
-  xpPickerText: { fontFamily: F.medium, fontSize: 12 },
+  modalRankText: { fontFamily: F.bold, fontSize: 12 },
+  modalXPBtn: {
+    flex: 1, height: 34, borderRadius: 8, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  modalXPText: { fontFamily: F.semiBold, fontSize: 12 },
 });
