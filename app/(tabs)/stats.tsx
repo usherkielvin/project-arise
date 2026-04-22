@@ -6,12 +6,13 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
-  withDelay, withTiming, withSpring, Easing,
+  withDelay, withTiming, Easing,
 } from 'react-native-reanimated';
 import { useTheme, ThemeMode } from '../../src/theme/ThemeContext';
-import { useSystemStore, xpForLevel } from '../../src/store/useSystemStore';
+import { ProtocolMode, useSystemStore, xpForLevel } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
 import { Sun, Moon, Smartphone } from 'lucide-react-native';
+import { protocolAccent } from '../../src/theme/colors';
 
 // ─── Stat base config (labels, sub, colorKey) ──────────────────────────────
 const STAT_CONFIG = [
@@ -101,6 +102,67 @@ function ThemeToggle() {
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+function ProtocolShiftToggle() {
+  const { colors: C, isDark } = useTheme();
+  const activeProtocol = useSystemStore((s) => s.activeProtocol);
+  const setActiveProtocol = useSystemStore((s) => s.setActiveProtocol);
+  const syncOpacity = useSharedValue(0);
+  const thumbX = useSharedValue(activeProtocol === 'FINANCE' ? 1 : 0);
+
+  const syncStyle = useAnimatedStyle(() => ({ opacity: syncOpacity.value }));
+  const thumbStyle = useAnimatedStyle(() => ({
+    left: `${thumbX.value * 50}%`,
+  }));
+  const financeAccent = protocolAccent('FINANCE', isDark, C.blue);
+  const options: { key: ProtocolMode; label: string }[] = [
+    { key: 'MONARCH', label: "Monarch's Grind" },
+    { key: 'FINANCE', label: 'Sovereign Terminal' },
+  ];
+
+  useEffect(() => {
+    thumbX.value = withTiming(activeProtocol === 'FINANCE' ? 1 : 0, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [activeProtocol, thumbX]);
+
+  const triggerSync = (next: ProtocolMode) => {
+    if (next === activeProtocol) return;
+    syncOpacity.value = withTiming(1, { duration: 100, easing: Easing.out(Easing.quad) }, () => {
+      syncOpacity.value = withTiming(0, { duration: 100, easing: Easing.in(Easing.quad) });
+    });
+    setActiveProtocol(next);
+  };
+
+  return (
+    <View style={[styles.protocolCard, { backgroundColor: C.void, borderColor: C.border }]}>
+      <View style={styles.protocolHeaderRow}>
+        <Text style={[styles.protocolLabel, { color: C.text }]}>Protocol Shift</Text>
+        <Text style={[styles.protocolSub, { color: C.textMut }]}>System State</Text>
+      </View>
+      <View style={[styles.protocolToggle, { backgroundColor: C.surface2, borderColor: C.border }]}>
+        <Animated.View style={[styles.protocolThumbWrap, thumbStyle]}>
+          <View style={[styles.protocolThumb, { backgroundColor: C.surface, borderColor: C.border }]} />
+        </Animated.View>
+        {options.map(({ key, label }) => {
+          const active = activeProtocol === key;
+          const color = key === 'FINANCE' ? financeAccent : C.blue;
+          return (
+            <Pressable
+              key={key}
+              style={styles.protocolOption}
+              onPress={() => triggerSync(key)}
+            >
+              <Text style={[styles.protocolOptionText, { color: active ? color : C.textMut }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Animated.View pointerEvents="none" style={[styles.protocolSyncFlash, { backgroundColor: C.surface }, syncStyle]} />
     </View>
   );
 }
@@ -210,6 +272,10 @@ export default function StatsScreen() {
             <Text style={[styles.lvlLabel, { color: C.textMut }]}>LVL</Text>
             <Text style={[styles.lvlNum, { color: C.blue }]}>{String(store.level).padStart(2, '0')}</Text>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <ProtocolShiftToggle />
         </View>
 
         {/* 2×2 Stat grid */}
@@ -389,4 +455,35 @@ const styles = StyleSheet.create({
   },
   themeOptionText: { fontFamily: F.medium, fontSize: 12 },
   themeOptionTextActive: { fontFamily: F.semiBold },
+  protocolCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    overflow: 'hidden',
+  },
+  protocolHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  protocolLabel: { fontFamily: F.semiBold, fontSize: 14 },
+  protocolSub: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.4, textTransform: 'uppercase' },
+  protocolToggle: { flexDirection: 'row', borderRadius: 10, borderWidth: 1, padding: 3, position: 'relative' },
+  protocolThumbWrap: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    width: '50%',
+    paddingHorizontal: 1.5,
+  },
+  protocolThumb: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  protocolOption: {
+    borderRadius: 8,
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  protocolOptionText: { fontFamily: F.medium, fontSize: 12, textAlign: 'center' },
+  protocolSyncFlash: { ...StyleSheet.absoluteFillObject, opacity: 0 },
 });

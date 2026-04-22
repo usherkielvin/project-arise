@@ -6,14 +6,14 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
-  withTiming, withSequence, withRepeat, FadeIn, FadeInDown, Easing,
+  withTiming, withSequence, withRepeat, FadeIn, Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { LevelUpModal } from '../../src/components/LevelUpModal';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { useSystemStore, xpForLevel } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
-import { Check, ChevronRight } from 'lucide-react-native';
+import { Check, ChevronRight, Flame } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 // ─── Pulsing dot ────────────────────────────────────────────────────────────────
@@ -38,19 +38,6 @@ function PulsingDot({ color }: { color: string }) {
     </View>
   );
 }
-
-const RANK_COLORS_LIGHT: Record<string, string> = {
-  E:'#94A3B8', D:'#10B981', C:'#0891B2', B:'#4F46E5', A:'#7C3AED', S:'#D97706',
-};
-const RANK_COLORS_DARK: Record<string, string> = {
-  E:'#64748B', D:'#34D399', C:'#22D3EE', B:'#818CF8', A:'#A78BFA', S:'#FBBF24',
-};
-
-const TOP_QUESTS = [
-  { id:1, title:'XAUUSD Market Study',      description:'Study the 1H + 4H chart. Identify key S/R zones before the NY session.', category:'Perception',   xp:50,  completed:false },
-  { id:2, title:'Ashcol API Refactor',       description:'Implement JWT refresh tokens and role-based route guards in Spring.',      category:'Intelligence', xp:100, completed:false },
-  { id:3, title:'NU MOA: Web Systems Quiz',  description:'Complete the online assessment for Module 4. Review lecture slides first.', category:'Intelligence', xp:75,  completed:false },
-];
 
 function PriorityCard({
   title, description, category, xp, completed, onPress,
@@ -116,7 +103,7 @@ function PriorityCard({
 }
 
 export default function HomeScreen() {
-  const { colors: C, isDark } = useTheme();
+  const { colors: C } = useTheme();
   const store = useSystemStore();
   const [showLvlUp, setShowLvlUp] = useState(false);
   const [modalLevel, setModalLevel] = useState(1);
@@ -130,6 +117,10 @@ export default function HomeScreen() {
   const done = todayDailies.filter(q => q.completed).length;
   const pct = todayDailies.length ? Math.round((done / todayDailies.length) * 100) : 0;
 
+  // Journal for today
+  const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  const todayJournal = store.journals.find(j => j.date === todayStr)?.content || '';
+
   const nextXP = xpForLevel(store.level + 1);
   const curXP = xpForLevel(store.level);
   const progress = Math.min(((store.totalXP - curXP) / (nextXP - curXP)) * 100, 100);
@@ -142,11 +133,12 @@ export default function HomeScreen() {
     }
   };
 
-  const HABIT_SNAP = store.habits.slice(0, 3).map(h => ({
+  const HABIT_SNAP = store.habits.slice(0, 2).map(h => ({
     label: h.title,
     streak: h.streak,
     done: h.week[6]
   }));
+  const habitsDoneToday = store.habits.filter((h) => h.week[6]).length;
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
@@ -159,7 +151,7 @@ export default function HomeScreen() {
             <PulsingDot color={C.success} />
             <Text style={[styles.statusText, { color: C.textMut }]}>System: Active</Text>
           </View>
-          <Text style={[styles.heroTitle, { color: C.text }]}>Today's{'\n'}Protocol</Text>
+          <Text style={[styles.heroTitle, { color: C.text }]}>{`Today's\nProtocol`}</Text>
           <Text style={[styles.heroDate, { color: C.textMut }]}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
@@ -184,6 +176,18 @@ export default function HomeScreen() {
              `${done} of ${todayDailies.length} objectives cleared`}
           </Text>
           <Text style={[styles.completionPct, { color: C.blue }]}>{pct}%</Text>
+        </View>
+
+        {/* Daily quick metrics */}
+        <View style={styles.metricsRow}>
+          <View style={[styles.metricCard, { backgroundColor: C.void, borderColor: C.border }]}>
+            <Text style={[styles.metricLabel, { color: C.textMut }]}>Open Quests</Text>
+            <Text style={[styles.metricValue, { color: C.text }]}>{activeQuests.length}</Text>
+          </View>
+          <View style={[styles.metricCard, { backgroundColor: C.void, borderColor: C.border }]}>
+            <Text style={[styles.metricLabel, { color: C.textMut }]}>Habits Today</Text>
+            <Text style={[styles.metricValue, { color: C.text }]}>{habitsDoneToday} done</Text>
+          </View>
         </View>
 
         {/* Active Objectives */}
@@ -217,9 +221,9 @@ export default function HomeScreen() {
 
         {/* Habit snapshot */}
         <View style={styles.section}>
-          <Text style={[styles.sectionEyebrow, { color: C.textMut }]}>Habit Streak</Text>
+          <Text style={[styles.sectionEyebrow, { color: C.textMut }]}>Habits Preview</Text>
           <View style={[styles.habitSnapshot, { borderTopColor: C.border }]}>
-            {HABIT_SNAP.map((h, i) => (
+            {HABIT_SNAP.length ? HABIT_SNAP.map((h, i) => (
               <Animated.View
                 key={i}
                 entering={FadeIn.delay(200 + i * 30).duration(220)}
@@ -229,22 +233,63 @@ export default function HomeScreen() {
                 <Text style={[
                   styles.habitLabel,
                   { color: h.done ? C.textMut : C.text },
-                  h.done && { textDecorationLine: 'line-through' },
                 ]}>
                   {h.label}
                 </Text>
                 <View style={{ flex: 1 }} />
-                <Text style={[styles.habitStreak, h.streak >= 7 && styles.habitStreakHot, { color: C.textMut }]}>
-                  {h.streak}d
-                </Text>
+                <View style={[
+                  styles.habitStreakPill,
+                  {
+                    backgroundColor: h.streak >= 7 ? 'rgba(249, 115, 22, 0.14)' : C.surface2,
+                    borderColor: h.streak >= 7 ? 'rgba(249, 115, 22, 0.35)' : C.border,
+                  },
+                ]}>
+                  <Flame
+                    size={12}
+                    color={h.streak >= 7 ? '#F97316' : C.textMut}
+                    strokeWidth={2}
+                    fill={h.streak >= 7 ? '#F97316' : 'transparent'}
+                  />
+                  <Text style={[
+                    styles.habitStreak,
+                    { color: h.streak >= 7 ? '#F97316' : C.textMut },
+                  ]}>
+                    {h.streak}
+                  </Text>
+                </View>
               </Animated.View>
-            ))}
+            )) : (
+              <Text style={[styles.priorityDesc, { color: C.textMut, paddingVertical: 12 }]}>No habits yet. Add one in Habits tab.</Text>
+            )}
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: C.textFnt }]}>ARISE · Command Center</Text>
+        {/* Quick Journal */}
+        <View style={styles.section}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={[styles.sectionEyebrow, { color: C.textMut }]}>Journal</Text>
+            <Pressable onPress={() => router.push('/(tabs)/journal')}>
+              <Text style={{ fontFamily: F.medium, fontSize: 11, color: C.blue }}>Open Logs</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.journalPanel, { backgroundColor: C.void, borderColor: C.border }]}>
+            <Pressable
+              style={({ pressed }) => [styles.journalPreview, { opacity: pressed ? 0.9 : 1 }]}
+              onPress={() => router.push({ pathname: '/(tabs)/journal', params: { openDate: todayStr } })}
+            >
+              <Text
+                style={[styles.journalInput, { color: todayJournal.trim().length ? C.text : C.textMut }]}
+                numberOfLines={6}
+              >
+                {todayJournal.trim().length
+                  ? todayJournal.trim()
+                  : 'No journal entry yet. Tap to open logs and write your first entry.'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <LevelUpModal
@@ -263,8 +308,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topBar: { height: 1, width: '100%' },
-  topBarFill: { height: '100%' },
   scroll: { paddingBottom: 130 },
   header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 8, gap: 8 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -281,6 +324,10 @@ const styles = StyleSheet.create({
   completionStrip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 4 },
   completionText: { flex: 1, fontFamily: F.regular, fontSize: 13 },
   completionPct: { fontFamily: F.semiBold, fontSize: 13 },
+  metricsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 24, paddingTop: 14 },
+  metricCard: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 10 },
+  metricLabel: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.4, textTransform: 'uppercase' },
+  metricValue: { fontFamily: F.semiBold, fontSize: 16, marginTop: 4 },
   section: { marginTop: 28, paddingHorizontal: 24 },
   sectionEyebrow: { fontFamily: F.mono, fontSize: 10, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 14 },
   cardStack: { gap: 10 },
@@ -300,8 +347,31 @@ const styles = StyleSheet.create({
   habitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderBottomWidth: 1 },
   habitDot: { width: 8, height: 8, borderRadius: 4 },
   habitLabel: { fontFamily: F.medium, fontSize: 14 },
-  habitStreak: { fontFamily: F.mono, fontSize: 12 },
-  habitStreakHot: { color: '#F97316' },
-  footer: { paddingTop: 40, paddingBottom: 8, alignItems: 'center' },
-  footerText: { fontFamily: F.mono, fontSize: 9, letterSpacing: 3 },
+  habitStreakPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  habitStreak: { fontFamily: F.mono, fontSize: 10, letterSpacing: 0.3 },
+  journalPanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  journalInput: {
+    padding: 16,
+    fontFamily: F.regular,
+    fontSize: 14,
+    lineHeight: 22,
+    minHeight: 80,
+    maxHeight: 170,
+  },
+  journalPreview: {
+    borderRadius: 12,
+    margin: 6,
+  },
 });

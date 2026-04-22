@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { C } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface SystemPanelProps {
   children: React.ReactNode;
@@ -16,6 +16,9 @@ interface SystemPanelProps {
 const CORNER = 10; // corner bracket size
 
 export function SystemPanel({ children, label, style, noPadding }: SystemPanelProps) {
+  const { colors: C } = useTheme();
+  const styles = getStyles(C);
+
   return (
     <View style={[styles.wrapper, style]}>
       {/* ── Corner Brackets ── */}
@@ -40,12 +43,12 @@ export function SystemPanel({ children, label, style, noPadding }: SystemPanelPr
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (C: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   wrapper: {
     borderWidth: 1,
     borderColor: C.blueBorder,
     borderRadius: 8,
-    backgroundColor: 'rgba(6,16,30,0.85)',
+    backgroundColor: C.surface,
     position: 'relative',
   },
   inner: {
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     textTransform: 'uppercase',
     marginHorizontal: 6,
-    backgroundColor: 'rgba(6,16,30,0.85)',
+    backgroundColor: C.surface,
     paddingHorizontal: 4,
   },
 });

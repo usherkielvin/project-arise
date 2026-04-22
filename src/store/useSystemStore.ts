@@ -2,9 +2,13 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { localDateKey, shouldEnablePenaltyForDateChange, xpForLevel } from './systemUtils';
+
+export { xpForLevel } from './systemUtils';
 
 export type QuestRank     = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type HabitCategory = 'health' | 'mind' | 'work' | 'social';
+export type ProtocolMode  = 'MONARCH' | 'FINANCE';
 
 export interface StatPoints { INT: number; PER: number; STR: number; VIT: number; }
 
@@ -16,12 +20,29 @@ export interface Quest {
 
 export interface Habit {
   id: number; title: string; category: HabitCategory;
-  streak: number; bestStreak: number; xpPerDay: number; week: boolean[];
+  streak: number; bestStreak: number; xpPerDay: number; week: boolean[]; checkedDates: string[];
 }
 
 export interface JournalEntry {
   date: string; // YYYY-MM-DD
   content: string;
+}
+
+export interface TradeLog {
+  id: number;
+  timestamp: string;
+  instrument: string;
+  entryPrice: number;
+  exitPrice: number;
+  pips: number;
+  notes: string;
+}
+
+export interface PreparedNewsEvent {
+  id: string;
+  title: string;
+  date: string;
+  prepared: boolean;
 }
 
 // Category → stat affinity mapping (exported for screens)
@@ -39,6 +60,10 @@ interface SystemState {
   quests: Quest[];
   habits: Habit[];
   journals: JournalEntry[];       // daily logs
+  activeProtocol: ProtocolMode;
+  tradeLogs: TradeLog[];
+  preparedNewsEvents: PreparedNewsEvent[];
+  financeGold: number;
   categories: string[];           // user-managed quest categories
   lastLoginDate: string | null;
   penaltyMode: boolean;
@@ -47,39 +72,63 @@ interface SystemState {
   deleteQuest: (id: number) => void;
   toggleQuest: (id: number) => { leveledUp: boolean; newLevel: number };
 
-  addHabit:    (h: Pick<Habit, 'title' | 'category' | 'xpPerDay'>) => void;
-  deleteHabit: (id: number) => void;
-  toggleHabit: (id: number) => { leveledUp: boolean; newLevel: number };
+  addHabit:     (h: Pick<Habit, 'title' | 'category' | 'xpPerDay'>) => void;
+  deleteHabit:  (id: number) => void;
+  toggleHabit:  (id: number) => { leveledUp: boolean; newLevel: number };
+  uncheckHabit: (id: number) => void;
+  toggleHabitDate: (id: number, date: string) => void;
 
   addCategory:    (name: string) => void;
   deleteCategory: (name: string) => void;
 
   saveJournal:    (date: string, content: string) => void;
+  setActiveProtocol: (mode: ProtocolMode) => void;
+  addTradeLog: (payload: Omit<TradeLog, 'id' | 'timestamp' | 'pips'>) => void;
+  togglePreparedNewsEvent: (event: Omit<PreparedNewsEvent, 'prepared'>) => void;
 
   checkMidnightReset: () => void;
   clearPenalty: () => void;
 }
 
-const INITIAL_QUESTS: Quest[] = [
-  { id:1, title:'XAUUSD Market Study',    description:'Study the 1H + 4H chart. Identify key S/R zones.', category:'Trading',     stat:'PER', xp:50,  rank:'D', completed:false, dateCreated:new Date().toISOString() },
-  { id:2, title:'Ashcol API Refactor',     description:'Implement JWT refresh tokens and role-based guards.', category:'Development', stat:'INT', xp:100, rank:'C', completed:false, dateCreated:new Date().toISOString() },
-  { id:3, title:'NU MOA: Web Systems Quiz',description:'Complete Module 4 assessment. Review slides first.',  category:'NU MOA',      stat:'INT', xp:75,  rank:'D', completed:false, dateCreated:new Date().toISOString() },
-  { id:4, title:'Physical: 3km Run',       description:'Complete a 3km outdoor run before 9AM.',              category:'Health',      stat:'STR', xp:60,  rank:'D', completed:false, dateCreated:new Date().toISOString() },
-];
+const INITIAL_QUESTS: Quest[] = [];
 
-const INITIAL_HABITS: Habit[] = [
-  { id:1, title:'3km Morning Run',   category:'health', streak:5,  bestStreak:14, xpPerDay:40, week:[true,false,true,true,true,true,false] },
-  { id:2, title:'Daily Chart Study', category:'mind',   streak:12, bestStreak:30, xpPerDay:35, week:[true,true,true,true,true,true,false] },
-  { id:3, title:'Code for 2 Hours',  category:'work',   streak:8,  bestStreak:21, xpPerDay:50, week:[true,true,false,true,true,true,false] },
-];
-
-export const xpForLevel = (lvl: number) => Math.floor(100 * Math.pow(lvl, 1.5));
+const INITIAL_HABITS: Habit[] = [];
 
 function computeLevelUp(currentLevel: number, newTotalXP: number) {
   let lvl = currentLevel;
   let leveled = false;
   while (xpForLevel(lvl + 1) <= newTotalXP) { lvl++; leveled = true; }
   return { newLevel: lvl, leveledUp: leveled };
+}
+
+function dateKeyDaysAgo(baseDateKey: string, daysAgo: number) {
+  const d = new Date(baseDateKey);
+  d.setDate(d.getDate() - daysAgo);
+  return localDateKey(d);
+}
+
+function checkedDatesFromWeek(week: boolean[], todayKey: string) {
+  const checked: string[] = [];
+  for (let i = 0; i < 7; i += 1) {
+    if (week[i]) checked.push(dateKeyDaysAgo(todayKey, 6 - i));
+  }
+  return checked;
+}
+
+function buildWeekFromCheckedDates(checkedDates: string[], todayKey: string) {
+  const s = new Set(checkedDates);
+  return [...Array(7)].map((_, i) => s.has(dateKeyDaysAgo(todayKey, 6 - i)));
+}
+
+function computeCurrentStreakFromCheckedDates(checkedDates: string[], todayKey: string) {
+  const s = new Set(checkedDates);
+  let streak = 0;
+  let cursor = new Date(todayKey);
+  while (s.has(localDateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
 }
 
 export const useSystemStore = create<SystemState>()(
@@ -91,6 +140,10 @@ export const useSystemStore = create<SystemState>()(
       quests: INITIAL_QUESTS,
       habits: INITIAL_HABITS,
       journals: [],
+      activeProtocol: 'MONARCH',
+      tradeLogs: [],
+      preparedNewsEvents: [],
+      financeGold: 0,
       categories: ['Trading', 'Development', 'NU MOA', 'Health'],
       lastLoginDate: null,
       penaltyMode: false,
@@ -156,6 +209,7 @@ export const useSystemStore = create<SystemState>()(
           streak: 0,
           bestStreak: 0,
           week: [false, false, false, false, false, false, false],
+          checkedDates: [],
         }],
       })),
 
@@ -167,7 +221,15 @@ export const useSystemStore = create<SystemState>()(
         let result = { leveledUp: false, newLevel: get().level };
         set((state) => {
           const habit = state.habits.find((h) => h.id === id);
-          if (!habit || habit.week[6]) return state;
+          if (!habit) return state;
+
+          const todayKey = localDateKey(new Date());
+          const checkedSet = new Set(
+            (habit.checkedDates && habit.checkedDates.length > 0)
+              ? habit.checkedDates
+              : checkedDatesFromWeek(habit.week, todayKey)
+          );
+          if (checkedSet.has(todayKey)) return state;
 
           const newXP = state.totalXP + habit.xpPerDay;
           const { newLevel, leveledUp } = computeLevelUp(state.level, newXP);
@@ -176,8 +238,10 @@ export const useSystemStore = create<SystemState>()(
           const sk = HABIT_STAT_MAP[habit.category];
           newStatPoints[sk] += habit.xpPerDay;
 
-          const newWeek = [...habit.week];
-          newWeek[6] = true;
+          checkedSet.add(todayKey);
+          const checkedDates = [...checkedSet].sort();
+          const newWeek = buildWeekFromCheckedDates(checkedDates, todayKey);
+          const nextStreak = computeCurrentStreakFromCheckedDates(checkedDates, todayKey);
 
           result = { leveledUp, newLevel };
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -186,8 +250,9 @@ export const useSystemStore = create<SystemState>()(
             habits: state.habits.map((h) => h.id === id ? {
               ...h,
               week: newWeek,
-              streak: h.streak + 1,
-              bestStreak: Math.max(h.bestStreak, h.streak + 1),
+              checkedDates,
+              streak: nextStreak,
+              bestStreak: Math.max(h.bestStreak, nextStreak),
             } : h),
             totalXP: newXP,
             level: newLevel,
@@ -196,6 +261,80 @@ export const useSystemStore = create<SystemState>()(
         });
         return result;
       },
+
+      uncheckHabit: (id) => set((state) => {
+        const habit = state.habits.find((h) => h.id === id);
+        if (!habit) return state;
+
+        const todayKey = localDateKey(new Date());
+        const checkedSet = new Set(
+          (habit.checkedDates && habit.checkedDates.length > 0)
+            ? habit.checkedDates
+            : checkedDatesFromWeek(habit.week, todayKey)
+        );
+        if (!checkedSet.has(todayKey)) return state;
+
+        const newXP = Math.max(0, state.totalXP - habit.xpPerDay);
+        const { newLevel } = computeLevelUp(1, newXP);
+
+        const newStatPoints = { ...state.statPoints };
+        const sk = HABIT_STAT_MAP[habit.category];
+        newStatPoints[sk] = Math.max(0, newStatPoints[sk] - habit.xpPerDay);
+
+        checkedSet.delete(todayKey);
+        const checkedDates = [...checkedSet].sort();
+        const newWeek = buildWeekFromCheckedDates(checkedDates, todayKey);
+        const nextStreak = computeCurrentStreakFromCheckedDates(checkedDates, todayKey);
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        return {
+          habits: state.habits.map((h) => h.id === id ? {
+            ...h,
+            week: newWeek,
+            checkedDates,
+            streak: nextStreak,
+          } : h),
+          totalXP: newXP,
+          level: newLevel,
+          statPoints: newStatPoints,
+        };
+      }),
+
+      toggleHabitDate: (id, date) => set((state) => {
+        const habit = state.habits.find((h) => h.id === id);
+        if (!habit) return state;
+
+        const target = new Date(date);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (target.getTime() > endOfToday.getTime()) return state; // no future dates
+
+        const todayKey = localDateKey(new Date());
+        const checkedSet = new Set(
+          (habit.checkedDates && habit.checkedDates.length > 0)
+            ? habit.checkedDates
+            : checkedDatesFromWeek(habit.week, todayKey)
+        );
+
+        const key = localDateKey(target);
+        if (checkedSet.has(key)) checkedSet.delete(key);
+        else checkedSet.add(key);
+
+        const checkedDates = [...checkedSet].sort();
+        const week = buildWeekFromCheckedDates(checkedDates, todayKey);
+        const streak = computeCurrentStreakFromCheckedDates(checkedDates, todayKey);
+
+        return {
+          habits: state.habits.map((h) => h.id === id ? {
+            ...h,
+            checkedDates,
+            week,
+            streak,
+            bestStreak: Math.max(h.bestStreak, streak),
+          } : h),
+        };
+      }),
 
       // ── Journal ─────────────────────────────────────────────────────────────
       saveJournal: (date, content) => set((state) => {
@@ -211,15 +350,66 @@ export const useSystemStore = create<SystemState>()(
         }
       }),
 
+      setActiveProtocol: (mode) => set({ activeProtocol: mode }),
+
+      addTradeLog: (payload) => set((state) => {
+        const pips = Math.round((payload.exitPrice - payload.entryPrice) * 100);
+        const positive = pips > 0;
+        const xpGain = positive ? Math.abs(pips) : Math.max(5, Math.round(Math.abs(pips) * 0.25));
+        const newXP = state.totalXP + xpGain;
+        const { newLevel } = computeLevelUp(state.level, newXP);
+        const newStatPoints = { ...state.statPoints, PER: state.statPoints.PER + xpGain };
+
+        return {
+          tradeLogs: [
+            {
+              id: Date.now(),
+              timestamp: new Date().toISOString(),
+              ...payload,
+              pips,
+            },
+            ...state.tradeLogs,
+          ],
+          financeGold: state.financeGold + Math.max(0, pips),
+          totalXP: newXP,
+          level: newLevel,
+          statPoints: newStatPoints,
+        };
+      }),
+
+      togglePreparedNewsEvent: (event) => set((state) => {
+        const existing = state.preparedNewsEvents.find((e) => e.id === event.id);
+        const nextPrepared = existing ? !existing.prepared : true;
+        const xpGain = nextPrepared ? 50 : -50;
+        const boundedXpGain = Math.max(-state.totalXP, xpGain);
+        const newXP = state.totalXP + boundedXpGain;
+        const { newLevel } = computeLevelUp(1, newXP);
+        const newStatPoints = {
+          ...state.statPoints,
+          PER: Math.max(0, state.statPoints.PER + boundedXpGain),
+        };
+
+        const nextEvents = existing
+          ? state.preparedNewsEvents.map((e) => e.id === event.id ? { ...e, prepared: nextPrepared } : e)
+          : [...state.preparedNewsEvents, { ...event, prepared: true }];
+
+        return {
+          preparedNewsEvents: nextEvents,
+          totalXP: newXP,
+          level: newLevel,
+          statPoints: newStatPoints,
+        };
+      }),
+
       // ── Reset ────────────────────────────────────────────────────────────────
       checkMidnightReset: () => set((state) => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = localDateKey(new Date());
         const last  = state.lastLoginDate?.split('T')[0];
         if (!last) return { lastLoginDate: today };
         if (last === today) return state;
 
-        // New day — shift habit weeks, check penalty
-        const hadUnfinished = state.quests.some((q) => !q.completed);
+        // New day — shift habit weeks, and only penalize unfinished quests created "yesterday".
+        const hadUnfinishedYesterday = shouldEnablePenaltyForDateChange(state.quests, last);
         const newHabits = state.habits.map((h) => ({
           ...h,
           week: [...h.week.slice(1), false],
@@ -229,7 +419,7 @@ export const useSystemStore = create<SystemState>()(
         return {
           lastLoginDate: today,
           habits: newHabits,
-          penaltyMode: hadUnfinished,
+          penaltyMode: hadUnfinishedYesterday,
         };
       }),
 

@@ -56,21 +56,25 @@ export function LevelUpModal({ visible, newLevel, statGains = [], onDismiss }: L
           cardStyle,
         ]}>
           <View style={[styles.accentLine, { backgroundColor: C.blue }]} />
+          <View style={[styles.glowOrb, { backgroundColor: C.blueGlow }]} />
 
           <Animated.View style={[styles.headerWrap, textStyle]}>
-            <Text style={[styles.eyebrow, { color: C.textMut }]}>QUEST COMPLETE</Text>
-            <Text style={[styles.levelUpText, { color: C.blue }]}>Level Up!</Text>
+            <Text style={[styles.eyebrow, { color: C.textMut }]}>SYSTEM UPDATE</Text>
+            <Text style={[styles.levelUpText, { color: C.blue }]}>Level Up</Text>
+            <Text style={[styles.subtitle, { color: C.textSub }]}>Outstanding progress. New thresholds unlocked.</Text>
           </Animated.View>
 
-          <Animated.View style={[styles.levelBadge, levelStyle]}>
-            <Text style={[styles.levelLabel, { color: C.textMut }]}>CURRENT LEVEL</Text>
-            <Text style={[styles.levelNumber, { color: C.text }]}>{newLevel}</Text>
+          <Animated.View style={[styles.levelBadgeWrap, levelStyle]}>
+            <View style={[styles.levelBadge, { backgroundColor: C.surface2, borderColor: C.border }]}>
+              <Text style={[styles.levelLabel, { color: C.textMut }]}>CURRENT LEVEL</Text>
+              <Text style={[styles.levelNumber, { color: C.text }]}>{newLevel}</Text>
+            </View>
           </Animated.View>
 
           {statGains.length > 0 && (
             <Animated.View style={[styles.statsContainer, levelStyle]}>
               {statGains.map((stat, i) => (
-                <View key={i} style={[styles.statRow, { backgroundColor: C.surface2 }]}>
+                <View key={i} style={[styles.statRow, { backgroundColor: C.surface2, borderColor: C.border }]}>
                   <Text style={[styles.statLabel, { color: C.textSub }]}>{stat.label}</Text>
                   <Text style={[styles.statValue, { color: C.blue }]}>{stat.value}</Text>
                 </View>
@@ -79,7 +83,13 @@ export function LevelUpModal({ visible, newLevel, statGains = [], onDismiss }: L
           )}
 
           <Animated.View style={[styles.btnWrap, levelStyle]}>
-            <Pressable style={[styles.dismissBtn, { backgroundColor: C.blue }]} onPress={onDismiss}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.dismissBtn,
+                { backgroundColor: C.blue, opacity: pressed ? 0.92 : 1 },
+              ]}
+              onPress={onDismiss}
+            >
               <Text style={styles.dismissText}>Continue</Text>
             </Pressable>
           </Animated.View>
@@ -99,9 +109,12 @@ const styles = StyleSheet.create({
     width: '82%',
     borderRadius: 20,
     borderWidth: 1,
-    padding: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 22,
     alignItems: 'center',
-    gap: 18,
+    gap: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
@@ -115,19 +128,37 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
   },
-  headerWrap: { alignItems: 'center', gap: 4, marginTop: 8 },
+  glowOrb: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    top: -110,
+    right: -75,
+  },
+  headerWrap: { alignItems: 'center', gap: 6, marginTop: 8 },
   eyebrow: { fontFamily: F.mono, fontSize: 9, letterSpacing: 3 },
-  levelUpText: { fontFamily: F.bold, fontSize: 36, letterSpacing: -1 },
-  levelBadge: { alignItems: 'center' },
+  levelUpText: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
+  subtitle: { fontFamily: F.regular, fontSize: 12, textAlign: 'center', lineHeight: 18, maxWidth: 240 },
+  levelBadgeWrap: { width: '100%', alignItems: 'center' },
+  levelBadge: {
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    minWidth: 160,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+  },
   levelLabel: { fontFamily: F.mono, fontSize: 9, letterSpacing: 2 },
-  levelNumber: { fontFamily: F.bold, fontSize: 72, lineHeight: 80, letterSpacing: -3 },
-  statsContainer: { width: '100%', gap: 6 },
+  levelNumber: { fontFamily: F.bold, fontSize: 58, lineHeight: 64, letterSpacing: -2.2 },
+  statsContainer: { width: '100%', gap: 8, marginTop: 2 },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 8,
+    borderWidth: 1,
   },
   statLabel: { fontFamily: F.medium, fontSize: 13 },
   statValue: { fontFamily: F.semiBold, fontSize: 13 },

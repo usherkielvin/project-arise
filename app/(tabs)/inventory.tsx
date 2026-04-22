@@ -8,8 +8,9 @@ import {
   Pressable, StyleSheet, Dimensions, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, Rarity, RARITY_COLOR } from '../../src/theme/colors';
+import { Rarity, RARITY_COLOR } from '../../src/theme/colors';
 import { F } from '../../src/theme/fonts';
+import { useTheme } from '../../src/theme/ThemeContext';
 
 const W = Dimensions.get('window').width;
 const COLS = 4;
@@ -44,26 +45,27 @@ const GRID_ITEMS = [
 ];
 
 export default function InventoryScreen() {
+  const { colors: C } = useTheme();
   const [selected, setSelected] = useState<ArtifactItem | null>(null);
   const earnedCount = ARTIFACTS.filter(a => a.earned).length;
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={[styles.root, { backgroundColor: C.void }]}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>HUNTER'S CACHE</Text>
+        <Text style={[styles.eyebrow, { color: C.blue }]}>{`HUNTER'S CACHE`}</Text>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Artifacts</Text>
+          <Text style={[styles.title, { color: C.text }]}>Artifacts</Text>
           <View style={styles.goldPill}>
-            <Text style={styles.goldIcon}>✦</Text>
-            <Text style={styles.goldVal}>340</Text>
+            <Text style={[styles.goldIcon, { color: C.gold }]}>✦</Text>
+            <Text style={[styles.goldVal, { color: C.gold }]}>340</Text>
             <Text style={styles.goldSub}> GOLD</Text>
           </View>
         </View>
-        <Text style={styles.subtitle}>{earnedCount} of {TOTAL_SLOTS} slots unlocked</Text>
+        <Text style={[styles.subtitle, { color: C.textMut }]}>{earnedCount} of {TOTAL_SLOTS} slots unlocked</Text>
       </View>
 
-      <View style={styles.hairline} />
+      <View style={[styles.hairline, { backgroundColor: C.border }]} />
 
       {/* ── Grid ── */}
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -72,8 +74,8 @@ export default function InventoryScreen() {
             if (!item) {
               return (
                 <View key={`empty-${idx}`} style={styles.cell}>
-                  <View style={styles.emptySlot}>
-                    <Text style={styles.emptyDot}>·</Text>
+                  <View style={[styles.emptySlot, { borderColor: C.border }]}>
+                    <Text style={[styles.emptyDot, { color: C.textFnt }]}>·</Text>
                   </View>
                 </View>
               );
@@ -90,6 +92,7 @@ export default function InventoryScreen() {
                   styles.filledSlot,
                   { borderColor: item.earned ? `${rarityColor}40` : C.border },
                   !item.earned && styles.slotLocked,
+                  { backgroundColor: C.surface },
                 ]}>
                   {item.earned ? (
                     <>
@@ -98,7 +101,7 @@ export default function InventoryScreen() {
                       <Text style={styles.itemIcon}>{item.icon}</Text>
                     </>
                   ) : (
-                    <Text style={styles.lockedIcon}>?</Text>
+                    <Text style={[styles.lockedIcon, { color: C.textMut }]}>?</Text>
                   )}
                 </View>
               </Pressable>
@@ -107,7 +110,7 @@ export default function InventoryScreen() {
         </View>
 
         <View style={styles.hint}>
-          <Text style={styles.hintText}>HOLD AN ITEM TO INSPECT · EARN BY COMPLETING MILESTONES</Text>
+          <Text style={[styles.hintText, { color: C.textFnt }]}>HOLD AN ITEM TO INSPECT · EARN BY COMPLETING MILESTONES</Text>
         </View>
       </ScrollView>
 
@@ -120,7 +123,7 @@ export default function InventoryScreen() {
         onRequestClose={() => setSelected(null)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setSelected(null)}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { backgroundColor: C.surface, borderTopColor: C.border }]}>
             {selected && (() => {
               const rc = RARITY_COLOR[selected.rarity];
               return (
@@ -134,16 +137,16 @@ export default function InventoryScreen() {
                       <Text style={[styles.modalRarity, { color: rc }]}>
                         {selected.rarity.toUpperCase()} · {selected.type.toUpperCase()}
                       </Text>
-                      <Text style={styles.modalName}>{selected.name}</Text>
+                      <Text style={[styles.modalName, { color: C.text }]}>{selected.name}</Text>
                     </View>
                   </View>
 
-                  <View style={styles.modalDivider} />
+                  <View style={[styles.modalDivider, { backgroundColor: C.border }]} />
 
-                  <Text style={styles.modalEffect}>{selected.effect}</Text>
+                  <Text style={[styles.modalEffect, { color: C.textSub }]}>{selected.effect}</Text>
 
-                  <Pressable onPress={() => setSelected(null)} style={styles.modalClose}>
-                    <Text style={styles.modalCloseText}>CLOSE</Text>
+                  <Pressable onPress={() => setSelected(null)} style={[styles.modalClose, { borderColor: C.border }]}>
+                    <Text style={[styles.modalCloseText, { color: C.textMut }]}>CLOSE</Text>
                   </Pressable>
                 </>
               );
@@ -156,7 +159,7 @@ export default function InventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.void },
+  root: { flex: 1 },
 
   header: {
     paddingHorizontal: 24,
@@ -167,7 +170,6 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontFamily: F.mono,
     fontSize: 9,
-    color: C.blue,
     letterSpacing: 4,
   },
   titleRow: {
@@ -178,7 +180,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: F.bold,
     fontSize: 28,
-    color: C.text,
     letterSpacing: -0.5,
   },
   goldPill: {
@@ -191,17 +192,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: 'rgba(245,158,11,0.06)',
   },
-  goldIcon: { color: C.gold, fontSize: 12 },
-  goldVal:  { fontFamily: F.monoBold, fontSize: 16, color: C.gold, marginLeft: 4 },
+  goldIcon: { fontSize: 12 },
+  goldVal:  { fontFamily: F.monoBold, fontSize: 16, marginLeft: 4 },
   goldSub:  { fontFamily: F.mono, fontSize: 9, color: 'rgba(245,158,11,0.5)', letterSpacing: 1 },
 
   subtitle: {
     fontFamily: F.regular,
     fontSize: 12,
-    color: C.textMut,
   },
 
-  hairline: { height: 0.5, backgroundColor: C.border },
+  hairline: { height: 0.5 },
 
   scroll: { paddingBottom: 110 },
 
@@ -222,13 +222,11 @@ const styles = StyleSheet.create({
   emptySlot: {
     flex: 1,
     borderWidth: 0.5,
-    borderColor: C.border,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyDot: {
-    color: C.textFnt,
     fontSize: 20,
   },
 
@@ -236,7 +234,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0.5,
     borderRadius: 4,
-    backgroundColor: C.surface,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -258,7 +255,6 @@ const styles = StyleSheet.create({
   lockedIcon: {
     fontFamily: F.monoBold,
     fontSize: 16,
-    color: C.textMut,
   },
 
   hint: {
@@ -269,7 +265,6 @@ const styles = StyleSheet.create({
   hintText: {
     fontFamily: F.mono,
     fontSize: 7,
-    color: C.textFnt,
     letterSpacing: 2,
     textAlign: 'center',
     lineHeight: 14,
@@ -282,9 +277,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: C.surface,
     borderTopWidth: 0.5,
-    borderTopColor: C.border,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: 'hidden',
@@ -310,18 +303,15 @@ const styles = StyleSheet.create({
   modalName: {
     fontFamily: F.bold,
     fontSize: 20,
-    color: C.text,
     letterSpacing: -0.3,
   },
   modalDivider: {
     height: 0.5,
-    backgroundColor: C.border,
     marginHorizontal: 24,
   },
   modalEffect: {
     fontFamily: F.mono,
     fontSize: 11,
-    color: C.textSub,
     letterSpacing: 1,
     padding: 24,
     lineHeight: 18,
@@ -331,14 +321,12 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingVertical: 13,
     borderWidth: 0.5,
-    borderColor: C.border,
     borderRadius: 6,
     alignItems: 'center',
   },
   modalCloseText: {
     fontFamily: F.mono,
     fontSize: 10,
-    color: C.textMut,
     letterSpacing: 3,
   },
 });

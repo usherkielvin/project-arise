@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
@@ -25,7 +25,9 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { F } from '../src/theme/fonts';
 import { ShieldAlert } from 'lucide-react-native';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => {
+  // During fast refresh/reload, splash may already be managed.
+});
 
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -71,6 +73,7 @@ function AppShell() {
 }
 
 export default function RootLayout() {
+  const didHideSplashRef = useRef(false);
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -81,7 +84,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) SplashScreen.hideAsync();
+    if ((fontsLoaded || fontError) && !didHideSplashRef.current) {
+      didHideSplashRef.current = true;
+      void SplashScreen.hideAsync().catch(() => {
+        // Ignore race conditions when native splash is already hidden.
+      });
+    }
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;

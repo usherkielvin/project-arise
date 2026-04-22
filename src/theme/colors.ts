@@ -49,6 +49,8 @@ export interface Colors {
   habitSocial: string;
 }
 
+export type ProtocolMode = 'MONARCH' | 'FINANCE';
+
 // ─── Light ────────────────────────────────────────────────────────────────────
 export const LIGHT: Colors = {
   void:     '#FAFAF9',
@@ -157,3 +159,19 @@ export const RANK_COLOR_DARK: Record<string, string> = {
   B: DARK.rankB, A: DARK.rankA, S: DARK.rankS,
 };
 export const RANK_COLOR = RANK_COLOR_LIGHT; // legacy alias
+
+export const RARITY_COLOR_LIGHT: Record<Rarity, string> = {
+  Common: LIGHT.common, Rare: LIGHT.rare, Epic: LIGHT.epic, Legendary: LIGHT.legendary,
+};
+export const RARITY_COLOR_DARK: Record<Rarity, string> = {
+  Common: DARK.common, Rare: DARK.rare, Epic: DARK.epic, Legendary: DARK.legendary,
+};
+export const RARITY_COLOR = RARITY_COLOR_LIGHT; // legacy default
+
+export const FINANCE_ACCENT_LIGHT = '#10B981';
+export const FINANCE_ACCENT_DARK = '#34D399';
+
+export function protocolAccent(protocol: ProtocolMode, isDark: boolean, fallbackBlue: string) {
+  if (protocol === 'FINANCE') return isDark ? FINANCE_ACCENT_DARK : FINANCE_ACCENT_LIGHT;
+  return fallbackBlue;
+}
