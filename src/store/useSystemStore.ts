@@ -16,6 +16,8 @@ export interface Quest {
   id: number; title: string; description: string;
   category: string; stat: string; xp: number;
   rank: QuestRank; completed: boolean; dateCreated: string;
+  isProgressBased?: boolean;
+  progress?: number; // 0-100
 }
 
 export interface Habit {
@@ -67,22 +69,29 @@ interface SystemState {
   categories: string[];           // user-managed quest categories
   lastLoginDate: string | null;
   penaltyMode: boolean;
+  profileImage: string | null;
 
-  addQuest:    (q: Omit<Quest, 'id' | 'completed' | 'dateCreated'>) => void;
+  addQuest:    (q: Omit<Quest, 'id' | 'completed' | 'dateCreated' | 'progress'> & { isProgressBased?: boolean }) => void;
+  updateQuest: (id: number, updates: Partial<Quest>) => void;
   deleteQuest: (id: number) => void;
   toggleQuest: (id: number) => { leveledUp: boolean; newLevel: number };
+  uncheckQuest: (id: number) => void;
+  addQuestProgress: (id: number, amount: number) => { leveledUp: boolean; newLevel: number };
 
   addHabit:     (h: Pick<Habit, 'title' | 'category' | 'xpPerDay'>) => void;
   deleteHabit:  (id: number) => void;
   toggleHabit:  (id: number) => { leveledUp: boolean; newLevel: number };
   uncheckHabit: (id: number) => void;
   toggleHabitDate: (id: number, date: string) => void;
+  updateHabitTitle: (id: number, title: string) => void;
 
   addCategory:    (name: string) => void;
   deleteCategory: (name: string) => void;
+  editCategory:   (oldName: string, newName: string) => void;
 
   saveJournal:    (date: string, content: string) => void;
   setActiveProtocol: (mode: ProtocolMode) => void;
+  setProfileImage: (uri: string | null) => void;
   addTradeLog: (payload: Omit<TradeLog, 'id' | 'timestamp' | 'pips'>) => void;
   togglePreparedNewsEvent: (event: Omit<PreparedNewsEvent, 'prepared'>) => void;
 
@@ -147,6 +156,7 @@ export const useSystemStore = create<SystemState>()(
       categories: ['Trading', 'Development', 'NU MOA', 'Health'],
       lastLoginDate: null,
       penaltyMode: false,
+      profileImage: null,
 
       // ── Quests ──────────────────────────────────────────────────────────────
       addQuest: (questData) => set((state) => ({
@@ -155,7 +165,12 @@ export const useSystemStore = create<SystemState>()(
           id: Date.now(),
           completed: false,
           dateCreated: new Date().toISOString(),
+          progress: questData.isProgressBased ? 0 : undefined,
         }],
+      })),
+
+      updateQuest: (id, updates) => set((state) => ({
+        quests: state.quests.map((q) => q.id === id ? { ...q, ...updates } : q),
       })),
 
       deleteQuest: (id) => set((state) => ({
@@ -171,8 +186,52 @@ export const useSystemStore = create<SystemState>()(
 
       deleteCategory: (name) => set((state) => ({
         categories: state.categories.filter((c) => c !== name),
-        // Move orphaned quests to first remaining category or keep as-is
       })),
+
+      editCategory: (oldName, newName) => set((state) => {
+        const trimmed = newName.trim();
+        if (!trimmed || state.categories.includes(trimmed)) return state;
+        return {
+          categories: state.categories.map((c) => c === oldName ? trimmed : c),
+          quests: state.quests.map((q) => q.category === oldName ? { ...q, category: trimmed } : q)
+        };
+      }),
+
+      addQuestProgress: (id, amount) => {
+        let result = { leveledUp: false, newLevel: get().level };
+        set((state) => {
+          const quest = state.quests.find((q) => q.id === id);
+          if (!quest || quest.completed || !quest.isProgressBased) return state;
+
+          const oldProgress = quest.progress || 0;
+          const newProgress = Math.min(100, Math.max(0, oldProgress + amount));
+          
+          if (newProgress === 100) {
+            const newXP = state.totalXP + quest.xp;
+            const { newLevel, leveledUp } = computeLevelUp(state.level, newXP);
+
+            const newStatPoints = { ...state.statPoints };
+            const sk = (quest.stat as keyof StatPoints);
+            if (sk in newStatPoints) newStatPoints[sk] += quest.xp;
+
+            result = { leveledUp, newLevel };
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            return {
+              quests: state.quests.map((q) => q.id === id ? { ...q, progress: 100, completed: true } : q),
+              totalXP: newXP,
+              level: newLevel,
+              statPoints: newStatPoints,
+            };
+          } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            return {
+              quests: state.quests.map((q) => q.id === id ? { ...q, progress: newProgress } : q),
+            };
+          }
+        });
+        return result;
+      },
 
       toggleQuest: (id) => {
         let result = { leveledUp: false, newLevel: get().level };
@@ -192,7 +251,7 @@ export const useSystemStore = create<SystemState>()(
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
           return {
-            quests: state.quests.map((q) => q.id === id ? { ...q, completed: true } : q),
+            quests: state.quests.map((q) => q.id === id ? { ...q, completed: true, progress: q.isProgressBased ? 100 : undefined } : q),
             totalXP: newXP,
             level: newLevel,
             statPoints: newStatPoints,
@@ -200,6 +259,29 @@ export const useSystemStore = create<SystemState>()(
         });
         return result;
       },
+
+      uncheckQuest: (id) => set((state) => {
+        const quest = state.quests.find((q) => q.id === id);
+        if (!quest || !quest.completed) return state;
+
+        const newXP = Math.max(0, state.totalXP - quest.xp);
+        const { newLevel } = computeLevelUp(1, newXP);
+
+        const newStatPoints = { ...state.statPoints };
+        const sk = (quest.stat as keyof StatPoints);
+        if (sk in newStatPoints) {
+          newStatPoints[sk] = Math.max(0, newStatPoints[sk] - quest.xp);
+        }
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        return {
+          quests: state.quests.map((q) => q.id === id ? { ...q, completed: false, progress: q.isProgressBased ? 0 : undefined } : q),
+          totalXP: newXP,
+          level: newLevel,
+          statPoints: newStatPoints,
+        };
+      }),
 
       // ── Habits ──────────────────────────────────────────────────────────────
       addHabit: (habitData) => set((state) => ({
@@ -336,6 +418,10 @@ export const useSystemStore = create<SystemState>()(
         };
       }),
 
+      updateHabitTitle: (id, title) => set((state) => ({
+        habits: state.habits.map((h) => h.id === id ? { ...h, title: title.trim() } : h),
+      })),
+
       // ── Journal ─────────────────────────────────────────────────────────────
       saveJournal: (date, content) => set((state) => {
         const existing = state.journals.findIndex(j => j.date === date);
@@ -351,6 +437,8 @@ export const useSystemStore = create<SystemState>()(
       }),
 
       setActiveProtocol: (mode) => set({ activeProtocol: mode }),
+
+      setProfileImage: (uri) => set({ profileImage: uri }),
 
       addTradeLog: (payload) => set((state) => {
         const pips = Math.round((payload.exitPrice - payload.entryPrice) * 100);

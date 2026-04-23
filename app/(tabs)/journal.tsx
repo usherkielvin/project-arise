@@ -119,18 +119,12 @@ function LogEntryView({ dateStr, onClose }: { dateStr: string, onClose: () => vo
     const store = useSystemStore();
     const existingEntry = store.journals.find(j => j.date === dateStr)?.content || '';
     const [text, setText] = useState(existingEntry);
+    const textRef = useRef(existingEntry);
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const flushSave = useCallback((value: string) => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
-      store.saveJournal(dateStr, value);
-    }, [dateStr, store]);
 
     const handleTextChange = (val: string) => {
         setText(val);
+        textRef.current = val;
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(() => {
           store.saveJournal(dateStr, val);
@@ -140,9 +134,14 @@ function LogEntryView({ dateStr, onClose }: { dateStr: string, onClose: () => vo
 
     useEffect(() => {
       return () => {
-        flushSave(text);
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        const finalVal = textRef.current;
+        // Defer save to next tick to prevent React unmount loop crash
+        setTimeout(() => {
+          useSystemStore.getState().saveJournal(dateStr, finalVal);
+        }, 0);
       };
-    }, [flushSave, text]);
+    }, [dateStr]);
 
     return (
         <Animated.View 
@@ -153,7 +152,11 @@ function LogEntryView({ dateStr, onClose }: { dateStr: string, onClose: () => vo
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={styles.editorHeader}>
                     <Text style={[styles.editorDate, { color: C.text }]}>Journal</Text>
-                    <Pressable onPress={() => { flushSave(text); onClose(); }} style={styles.closeBtn}>
+                    <Pressable onPress={() => { 
+                      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                      useSystemStore.getState().saveJournal(dateStr, textRef.current);
+                      onClose(); 
+                    }} style={styles.closeBtn}>
                         <X size={28} color={C.text} />
                     </Pressable>
                 </View>

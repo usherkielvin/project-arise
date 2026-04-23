@@ -11,7 +11,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { LevelUpModal } from '../../src/components/LevelUpModal';
 import { useTheme } from '../../src/theme/ThemeContext';
-import { useSystemStore, xpForLevel } from '../../src/store/useSystemStore';
+import { useSystemStore, Quest, xpForLevel } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
 import { Check, ChevronRight, Flame } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -40,63 +40,109 @@ function PulsingDot({ color }: { color: string }) {
 }
 
 function PriorityCard({
-  title, description, category, xp, completed, onPress,
-}: { title: string; description: string; category: string; xp: number; completed: boolean; onPress: () => void }) {
+  quest, onToggle, onAddProgress,
+}: { 
+  quest: Quest; 
+  onToggle: (id: number) => void;
+  onAddProgress: (id: number, amt: number) => void;
+}) {
   const { colors: C } = useTheme();
   const scale      = useSharedValue(1);
-  const checkScale = useSharedValue(completed ? 1 : 0);
+  const checkScale = useSharedValue(quest.completed ? 1 : 0);
+  const [expanded, setExpanded] = useState(false);
 
   React.useEffect(() => {
-    checkScale.value = withTiming(completed ? 1 : 0, { duration: 180, easing: Easing.out(Easing.cubic) });
-  }, [completed]);
+    checkScale.value = withTiming(quest.completed ? 1 : 0, { duration: 180, easing: Easing.out(Easing.cubic) });
+  }, [quest.completed]);
 
-  const handlePress = () => {
-    if (completed) return;
+  const handleCardPress = () => {
+    if (quest.completed) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSequence(
       withTiming(0.97, { duration: 70, easing: Easing.out(Easing.cubic) }),
       withTiming(1.0,  { duration: 120, easing: Easing.out(Easing.cubic) })
     );
-    onPress();
+    setExpanded(!expanded);
+  };
+
+  const handleCheckPress = () => {
+    Haptics.selectionAsync();
+    onToggle(quest.id);
   };
 
   const cardAnim  = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const checkAnim = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
 
   return (
-    <Pressable onPress={handlePress}>
+    <Pressable onPress={handleCardPress}>
       <Animated.View style={[
         styles.priorityCard,
         { backgroundColor: C.void, borderColor: C.border },
-        completed && styles.priorityCardDone,
+        quest.completed && styles.priorityCardDone,
         cardAnim,
       ]}>
         <View style={styles.priorityTop}>
-          <Text style={[styles.priorityCategory, { color: C.textMut }]}>{category}</Text>
-          <View style={[
+          <Text style={[styles.priorityCategory, { color: C.textMut }]}>{quest.category}</Text>
+          <Pressable onPress={handleCheckPress} hitSlop={12} style={[
             styles.checkbox,
-            { borderColor: completed ? C.blue : C.borderMid },
-            completed && { backgroundColor: C.blue },
+            { borderColor: quest.completed ? C.blue : C.borderMid },
+            quest.completed && { backgroundColor: C.blue },
           ]}>
             <Animated.View style={checkAnim}>
               <Check size={11} color="#fff" strokeWidth={3} />
             </Animated.View>
-          </View>
+          </Pressable>
         </View>
         <Text style={[
           styles.priorityTitle,
           { color: C.text },
-          completed && { color: C.textMut, textDecorationLine: 'line-through' },
+          quest.completed && { color: C.textMut, textDecorationLine: 'line-through' },
         ]}>
-          {title}
+          {quest.title}
         </Text>
-        {!completed && (
-          <Text style={[styles.priorityDesc, { color: C.textMut }]} numberOfLines={2}>{description}</Text>
-        )}
+        {!quest.completed && quest.description ? (
+          <Text style={[styles.priorityDesc, { color: C.textMut }]} numberOfLines={expanded ? undefined : 2}>{quest.description}</Text>
+        ) : null}
+        
         <View style={styles.priorityFooter}>
-          <Text style={[styles.priorityXP, { color: completed ? C.textMut : C.blue }]}>+{xp} XP</Text>
-          {completed && <Text style={[styles.completedLabel, { color: C.success }]}>Completed</Text>}
+          {quest.isProgressBased && !quest.completed && (
+            <View style={{ backgroundColor: C.blueDim, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: C.blueBorder }}>
+              <Text style={{ color: C.blue, fontFamily: F.bold, fontSize: 10 }}>
+                {quest.progress ?? 0}%
+              </Text>
+            </View>
+          )}
+          <Text style={[styles.priorityXP, { color: quest.completed ? C.textMut : C.blue }]}>+{quest.xp} XP</Text>
+          {quest.completed && <Text style={[styles.completedLabel, { color: C.success }]}>Completed</Text>}
         </View>
+
+        {/* Expanded Progress Options */}
+        {expanded && quest.isProgressBased && !quest.completed && (
+          <Animated.View entering={FadeIn.duration(150)} style={{ marginTop: 6, gap: 10, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontFamily: F.medium, fontSize: 12, color: C.textMut }}>
+                Update Progress
+              </Text>
+              <Text style={{ fontFamily: F.bold, fontSize: 12, color: C.blue }}>
+                {quest.progress ?? 0}%
+              </Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: C.surface2, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ height: '100%', width: `${quest.progress ?? 0}%`, backgroundColor: C.blue, borderRadius: 3 }} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+              {[3, 5, 10, 25].map(amt => (
+                <Pressable 
+                  key={amt} 
+                  style={{ flex: 1, paddingVertical: 8, backgroundColor: C.blueDim, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: C.blueBorder }}
+                  onPress={() => onAddProgress(quest.id, amt)}
+                >
+                  <Text style={{ color: C.blue, fontFamily: F.semiBold, fontSize: 13 }}>+{amt}%</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -110,12 +156,21 @@ export default function HomeScreen() {
   const router = useRouter();
 
   // Get active quests (top 3 pending)
-  const activeQuests = store.quests.filter(q => !q.completed).slice(0, 3);
+  const openQuests = store.quests.filter(q => !q.completed);
+  const activeQuests = openQuests.slice(0, 3);
   
   // Also get some completed ones if we want to show them, or just use all for the progress math
   const todayDailies = store.quests; // Or filter by date if needed. Let's use all for now
   const done = todayDailies.filter(q => q.completed).length;
-  const pct = todayDailies.length ? Math.round((done / todayDailies.length) * 100) : 0;
+  
+  let earnedQuestScore = 0;
+  let totalQuestScore = todayDailies.length * 100;
+  todayDailies.forEach(q => {
+    if (q.completed) earnedQuestScore += 100;
+    else if (q.isProgressBased && q.progress) earnedQuestScore += q.progress;
+  });
+
+  const pct = totalQuestScore > 0 ? Math.round((earnedQuestScore / totalQuestScore) * 100) : 0;
 
   // Journal for today
   const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
@@ -126,7 +181,20 @@ export default function HomeScreen() {
   const progress = Math.min(((store.totalXP - curXP) / (nextXP - curXP)) * 100, 100);
 
   const handleToggleQuest = (id: number) => {
-    const result = store.toggleQuest(id);
+    const q = store.quests.find(x => x.id === id);
+    if (q?.completed) {
+      store.uncheckQuest(id);
+    } else {
+      const result = store.toggleQuest(id);
+      if (result && result.leveledUp) {
+        setModalLevel(result.newLevel);
+        setShowLvlUp(true);
+      }
+    }
+  };
+
+  const handleAddProgress = (id: number, amt: number) => {
+    const result = store.addQuestProgress(id, amt);
     if (result && result.leveledUp) {
       setModalLevel(result.newLevel);
       setShowLvlUp(true);
@@ -139,6 +207,8 @@ export default function HomeScreen() {
     done: h.week[6]
   }));
   const habitsDoneToday = store.habits.filter((h) => h.week[6]).length;
+  const totalHabits = store.habits.length;
+  const habitPct = totalHabits > 0 ? Math.round((habitsDoneToday / totalHabits) * 100) : 0;
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
@@ -180,13 +250,24 @@ export default function HomeScreen() {
 
         {/* Daily quick metrics */}
         <View style={styles.metricsRow}>
-          <View style={[styles.metricCard, { backgroundColor: C.void, borderColor: C.border }]}>
+          <View style={[styles.metricCard, { backgroundColor: C.void, borderColor: C.border, justifyContent: 'space-between' }]}>
             <Text style={[styles.metricLabel, { color: C.textMut }]}>Open Quests</Text>
-            <Text style={[styles.metricValue, { color: C.text }]}>{activeQuests.length}</Text>
+            <View style={{ marginTop: 4 }}>
+              <Text style={[styles.metricValue, { color: C.text, marginTop: 0 }]}>{openQuests.length}</Text>
+            </View>
           </View>
-          <View style={[styles.metricCard, { backgroundColor: C.void, borderColor: C.border }]}>
+          <View style={[styles.metricCard, { backgroundColor: C.void, borderColor: C.border, justifyContent: 'space-between' }]}>
             <Text style={[styles.metricLabel, { color: C.textMut }]}>Habits Today</Text>
-            <Text style={[styles.metricValue, { color: C.text }]}>{habitsDoneToday} done</Text>
+            <View style={{ marginTop: 4 }}>
+              <Text style={[styles.metricValue, { color: C.text, marginTop: 0 }]}>
+                {totalHabits > 0 ? `${habitPct}%` : '0%'}
+              </Text>
+              {totalHabits > 0 && (
+                <View style={{ height: 4, backgroundColor: C.surface2, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+                  <View style={{ height: '100%', width: `${habitPct}%`, backgroundColor: C.blue, borderRadius: 2 }} />
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
@@ -200,12 +281,9 @@ export default function HomeScreen() {
               activeQuests.map((q, i) => (
                 <Animated.View key={q.id} entering={FadeIn.delay(i * 40).duration(220)}>
                   <PriorityCard
-                    title={q.title}
-                    description={q.description}
-                    category={q.category}
-                    xp={q.xp}
-                    completed={q.completed}
-                    onPress={() => handleToggleQuest(q.id)}
+                    quest={q}
+                    onToggle={handleToggleQuest}
+                    onAddProgress={handleAddProgress}
                   />
                 </Animated.View>
               ))

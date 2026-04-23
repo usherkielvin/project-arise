@@ -106,8 +106,8 @@ function HabitRow({ habit, onComplete, onUncheck, onOpen, onDelete, index }: {
             <View style={styles.habitMeta}>
               <View style={styles.trackMetaRow}>
                 <View style={styles.streakPill}>
-                  <Flame size={11} color={habit.streak >= 7 ? '#F97316' : C.textFnt} strokeWidth={2} fill={habit.streak >= 7 ? '#F97316' : 'transparent'} />
-                  <Text style={[styles.streakText, { color: habit.streak >= 7 ? '#F97316' : C.textMut }]}>{habit.streak}</Text>
+                  <Flame size={11} color={habit.streak >= 3 ? '#F97316' : C.textFnt} strokeWidth={2} fill={habit.streak >= 3 ? '#F97316' : 'transparent'} />
+                  <Text style={[styles.streakText, { color: habit.streak >= 3 ? '#F97316' : C.textMut }]}>{habit.streak}</Text>
                 </View>
                 <Text style={[styles.xpMini, { color: C.textMut }]}>+{habit.xpPerDay} XP</Text>
               </View>
@@ -241,28 +241,26 @@ export default function HabitsScreen() {
           )}
         </View>
 
-        {/* Summary row */}
-        <View style={styles.summaryRow}>
-          {[
-            { val: `${doneToday}`, label: 'Done Today', accent: C.blue, bar: true },
-            { val: `🔥 ${longestStreak}`, label: 'Best Streak', accent: '#F97316' },
-            { val: `+${totalXP} XP`,      label: 'Earned',      accent: C.gold },
-          ].map((card, i) => (
-            <Animated.View
-              key={i}
-              entering={FadeIn.delay(i * 50).duration(220)}
-              style={[styles.summaryCard, { backgroundColor: C.surface, borderColor: C.border }]}
-            >
-              <Text style={[styles.summaryVal,   { color: card.accent }]}>{card.val}</Text>
-              <Text style={[styles.summaryLabel, { color: C.textMut   }]}>{card.label}</Text>
-              {card.bar && (
-                <View style={[styles.miniBar, { backgroundColor: C.surface2 }]}>
-                  <View style={[styles.miniBarFill, { width: `${pct}%`, backgroundColor: C.blue }]} />
-                </View>
-              )}
-            </Animated.View>
-          ))}
-        </View>
+        {/* Daily Progress */}
+        <Animated.View entering={FadeIn.duration(220)} style={{ marginHorizontal: 20, marginTop: 12 }}>
+          <View style={[{ borderRadius: 16, borderWidth: 1, padding: 18, backgroundColor: C.surface, borderColor: C.border }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View>
+                <Text style={{ fontFamily: F.medium, fontSize: 13, color: C.textMut, marginBottom: 2 }}>Daily Progress</Text>
+                <Text style={{ fontFamily: F.bold, fontSize: 24, letterSpacing: -0.5, color: C.text }}>
+                  <Text style={{ color: C.blue }}>{doneToday}</Text> / {habits.length} Done
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', backgroundColor: C.void, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.border }}>
+                <Text style={{ fontFamily: F.mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.textMut, marginBottom: 2 }}>Earned</Text>
+                <Text style={{ fontFamily: F.bold, fontSize: 15, color: C.gold }}>+{totalXP} XP</Text>
+              </View>
+            </View>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: C.surface2, overflow: 'hidden' }}>
+              <Animated.View style={{ height: '100%', borderRadius: 3, backgroundColor: C.blue, width: `${pct}%` }} />
+            </View>
+          </View>
+        </Animated.View>
 
         {/* Habit list */}
         <View style={styles.section}>
@@ -303,32 +301,7 @@ export default function HabitsScreen() {
           </View>
         </View>
 
-        {/* Category breakdown */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: C.text }]}>By Category</Text>
-          <View style={styles.categoryGrid}>
-            {(Object.entries(CAT_META) as [HabitCategory, typeof CAT_META[HabitCategory]][]).map(([key, meta]) => {
-              const Icon      = meta.Icon;
-              const color     = C[meta.colorKey];
-              const catHabits = habits.filter(h => h.category === key);
-              if (!catHabits.length) return null;
-              const catDone = catHabits.filter(h => h.week[6]).length;
-              const catPct  = (catDone / catHabits.length) * 100;
-              return (
-                <View key={key} style={[styles.catCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-                  <View style={[styles.catIcon, { backgroundColor: color + '16' }]}>
-                    <Icon size={16} color={color} strokeWidth={1.8} />
-                  </View>
-                  <Text style={[styles.catLabel, { color: C.text }]}>{meta.label}</Text>
-                  <Text style={[styles.catCount, { color: C.text }]}>{catDone}/{catHabits.length}</Text>
-                  <View style={[styles.catBar, { backgroundColor: C.surface2 }]}>
-                    <View style={[styles.catBarFill, { width: `${catPct}%`, backgroundColor: color }]} />
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </View>
+
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -346,8 +319,19 @@ export default function HabitsScreen() {
               ]}
             >
               <View style={styles.modalTopTextWrap}>
-                <Text style={[styles.modalEyebrow, { color: C.textMut }]}>Habit Detail</Text>
-                <Text style={[styles.modalTitle, { color: C.text }]} numberOfLines={1}>{selectedHabit.title}</Text>
+                <Text style={[styles.modalEyebrow, { color: C.textMut }]}>Habit Detail (Tap to edit)</Text>
+                <TextInput 
+                  style={[styles.modalTitle, { color: C.text, padding: 0, margin: 0 }]} 
+                  defaultValue={selectedHabit.title}
+                  onEndEditing={(e) => {
+                    const t = e.nativeEvent.text.trim();
+                    if (t && t !== selectedHabit.title) {
+                      store.updateHabitTitle(selectedHabit.id, t);
+                    }
+                  }}
+                  returnKeyType="done"
+                  selectTextOnFocus
+                />
               </View>
               <Pressable onPress={() => setSelectedHabitId(null)} style={[styles.modalCloseBtn, { backgroundColor: C.surface }]}>
                 <X size={28} color={C.text} />
@@ -603,11 +587,4 @@ const styles = StyleSheet.create({
   },
   confirmBtnDangerText: { fontFamily: F.semiBold, fontSize: 13 },
 
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10 },
-  catCard:  { width: '47%', borderRadius: 12, borderWidth: 1, padding: 14, gap: 6, elevation: 1 },
-  catIcon:  { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  catLabel: { fontFamily: F.medium,   fontSize: 13, marginTop: 2 },
-  catCount: { fontFamily: F.semiBold, fontSize: 18, letterSpacing: -0.5 },
-  catBar:   { height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 2 },
-  catBarFill:{ height: '100%', borderRadius: 2 },
 });

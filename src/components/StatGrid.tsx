@@ -11,10 +11,10 @@ import { useTheme } from '../theme/ThemeContext';
 import { F } from '../theme/fonts';
 
 const STATS_BASE = [
-  { key: 'INT', label: 'INT', value: 14, max: 25, sub: 'Development'  },
-  { key: 'PER', label: 'PER', value: 12, max: 25, sub: 'Market Sense' },
-  { key: 'STR', label: 'STR', value: 10, max: 25, sub: 'Consistency'  },
-  { key: 'VIT', label: 'VIT', value: 8,  max: 25, sub: 'Health'       },
+  { statKey: 'INT', label: 'INT', value: 14, max: 25, sub: 'Development'  },
+  { statKey: 'PER', label: 'PER', value: 12, max: 25, sub: 'Market Sense' },
+  { statKey: 'STR', label: 'STR', value: 10, max: 25, sub: 'Consistency'  },
+  { statKey: 'VIT', label: 'VIT', value: 8,  max: 25, sub: 'Health'       },
 ];
 
 function StatTile({ statKey, label, value, max, sub, color, delay, isRight }:

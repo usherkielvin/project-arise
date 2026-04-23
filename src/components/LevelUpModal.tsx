@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { View, Text, Modal, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { F } from '../theme/fonts';
+import { X } from 'lucide-react-native';
 
 interface LevelUpModalProps {
   visible: boolean;
@@ -45,56 +46,72 @@ export function LevelUpModal({ visible, newLevel, statGains = [], onDismiss }: L
 
   return (
     <Modal transparent visible={visible} animationType="none" statusBarTranslucent>
-      <Animated.View style={[
-        styles.backdrop,
-        { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.30)' },
-        backdropStyle,
-      ]}>
-        <Animated.View style={[
-          styles.card,
-          { backgroundColor: C.surface, borderColor: C.border },
-          cardStyle,
-        ]}>
-          <View style={[styles.accentLine, { backgroundColor: C.blue }]} />
-          <View style={[styles.glowOrb, { backgroundColor: C.blueGlow }]} />
-
-          <Animated.View style={[styles.headerWrap, textStyle]}>
-            <Text style={[styles.eyebrow, { color: C.textMut }]}>SYSTEM UPDATE</Text>
-            <Text style={[styles.levelUpText, { color: C.blue }]}>Level Up</Text>
-            <Text style={[styles.subtitle, { color: C.textSub }]}>Outstanding progress. New thresholds unlocked.</Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.levelBadgeWrap, levelStyle]}>
-            <View style={[styles.levelBadge, { backgroundColor: C.surface2, borderColor: C.border }]}>
-              <Text style={[styles.levelLabel, { color: C.textMut }]}>CURRENT LEVEL</Text>
-              <Text style={[styles.levelNumber, { color: C.text }]}>{newLevel}</Text>
-            </View>
-          </Animated.View>
-
-          {statGains.length > 0 && (
-            <Animated.View style={[styles.statsContainer, levelStyle]}>
-              {statGains.map((stat, i) => (
-                <View key={i} style={[styles.statRow, { backgroundColor: C.surface2, borderColor: C.border }]}>
-                  <Text style={[styles.statLabel, { color: C.textSub }]}>{stat.label}</Text>
-                  <Text style={[styles.statValue, { color: C.blue }]}>{stat.value}</Text>
-                </View>
-              ))}
-            </Animated.View>
-          )}
-
-          <Animated.View style={[styles.btnWrap, levelStyle]}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.dismissBtn,
-                { backgroundColor: C.blue, opacity: pressed ? 0.92 : 1 },
+      <TouchableWithoutFeedback onPress={onDismiss}>
+        <Animated.View 
+          style={[
+            styles.backdrop,
+            { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.30)' },
+            backdropStyle,
+          ]}
+        >
+          <TouchableWithoutFeedback>
+            <Animated.View 
+              style={[
+                styles.card,
+                { backgroundColor: C.surface, borderColor: C.border },
+                cardStyle,
               ]}
-              onPress={onDismiss}
             >
-              <Text style={styles.dismissText}>Continue</Text>
-            </Pressable>
-          </Animated.View>
+              <TouchableOpacity 
+                style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, padding: 8 }}
+                onPress={onDismiss}
+              >
+                <X size={20} color={C.textMut} />
+              </TouchableOpacity>
+
+              <View style={[styles.accentLine, { backgroundColor: C.blue }]} />
+              <View style={[styles.glowOrb, { backgroundColor: C.blueGlow }]} />
+
+              <Animated.View style={[styles.headerWrap, textStyle]}>
+                <Text style={[styles.eyebrow, { color: C.textMut }]}>SYSTEM UPDATE</Text>
+                <Text style={[styles.levelUpText, { color: C.blue }]}>Level Up</Text>
+                <Text style={[styles.subtitle, { color: C.textSub }]}>Outstanding progress. New thresholds unlocked.</Text>
+              </Animated.View>
+
+              <Animated.View style={[styles.levelBadgeWrap, levelStyle]}>
+                <View style={[styles.levelBadge, { backgroundColor: C.surface2, borderColor: C.border }]}>
+                  <Text style={[styles.levelLabel, { color: C.textMut }]}>CURRENT LEVEL</Text>
+                  <Text style={[styles.levelNumber, { color: C.text }]}>{newLevel}</Text>
+                </View>
+              </Animated.View>
+
+              {statGains.length > 0 && (
+                <Animated.View style={[styles.statsContainer, levelStyle]}>
+                  {statGains.map((stat, i) => (
+                    <View key={i} style={[styles.statRow, { backgroundColor: C.surface2, borderColor: C.border }]}>
+                      <Text style={[styles.statLabel, { color: C.textSub }]}>{stat.label}</Text>
+                      <Text style={[styles.statValue, { color: C.blue }]}>{stat.value}</Text>
+                    </View>
+                  ))}
+                </Animated.View>
+              )}
+
+              <Animated.View style={[styles.btnWrap, levelStyle]}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={[
+                    styles.dismissBtn,
+                    { backgroundColor: C.blue },
+                  ]}
+                  onPress={onDismiss}
+                >
+                  <Text style={styles.dismissText}>Continue</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </Animated.View>
+          </TouchableWithoutFeedback>
         </Animated.View>
-      </Animated.View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }

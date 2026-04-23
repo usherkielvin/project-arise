@@ -1,8 +1,8 @@
 /**
  * Stats Screen — Hunter Profile. Full dark mode support + theme toggle.
  */
-import React, { useEffect } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, View, Text, Pressable, StyleSheet, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
@@ -11,15 +11,17 @@ import Animated, {
 import { useTheme, ThemeMode } from '../../src/theme/ThemeContext';
 import { ProtocolMode, useSystemStore, xpForLevel } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
-import { Sun, Moon, Smartphone } from 'lucide-react-native';
+import { Sun, Moon, Smartphone, Activity, TrendingUp, Swords, Flame, Skull, Crown, Ghost, Zap, Image as ImageIcon, X } from 'lucide-react-native';
 import { protocolAccent } from '../../src/theme/colors';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 
 // ─── Stat base config (labels, sub, colorKey) ──────────────────────────────
 const STAT_CONFIG = [
-  { key: 'INT', fullName: 'Intelligence', sub: 'Ashcol / BSIT projects',   colorKey: 'statInt' as const },
-  { key: 'PER', fullName: 'Perception',   sub: 'XAUUSD / Forex analysis',  colorKey: 'statPer' as const },
-  { key: 'STR', fullName: 'Strength',     sub: 'Physical habits / streaks', colorKey: 'statStr' as const },
-  { key: 'VIT', fullName: 'Vitality',     sub: 'Health, sleep & meals',     colorKey: 'statVit' as const },
+  { key: 'INT', fullName: 'Intelligence', sub: 'Logic, Coding & Skill Synthesis', colorKey: 'statInt' as const },
+  { key: 'PER', fullName: 'Perception',   sub: 'Market Intuition & Pattern Recognition', colorKey: 'statPer' as const },
+  { key: 'STR', fullName: 'Strength',     sub: 'Physical Discipline & Habit Output', colorKey: 'statStr' as const },
+  { key: 'VIT', fullName: 'Vitality',     sub: 'Energy Core & Recovery Efficiency', colorKey: 'statVit' as const },
 ];
 
 // Base values before earned XP
@@ -106,66 +108,7 @@ function ThemeToggle() {
   );
 }
 
-function ProtocolShiftToggle() {
-  const { colors: C, isDark } = useTheme();
-  const activeProtocol = useSystemStore((s) => s.activeProtocol);
-  const setActiveProtocol = useSystemStore((s) => s.setActiveProtocol);
-  const syncOpacity = useSharedValue(0);
-  const thumbX = useSharedValue(activeProtocol === 'FINANCE' ? 1 : 0);
 
-  const syncStyle = useAnimatedStyle(() => ({ opacity: syncOpacity.value }));
-  const thumbStyle = useAnimatedStyle(() => ({
-    left: `${thumbX.value * 50}%`,
-  }));
-  const financeAccent = protocolAccent('FINANCE', isDark, C.blue);
-  const options: { key: ProtocolMode; label: string }[] = [
-    { key: 'MONARCH', label: "Monarch's Grind" },
-    { key: 'FINANCE', label: 'Sovereign Terminal' },
-  ];
-
-  useEffect(() => {
-    thumbX.value = withTiming(activeProtocol === 'FINANCE' ? 1 : 0, {
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [activeProtocol, thumbX]);
-
-  const triggerSync = (next: ProtocolMode) => {
-    if (next === activeProtocol) return;
-    syncOpacity.value = withTiming(1, { duration: 100, easing: Easing.out(Easing.quad) }, () => {
-      syncOpacity.value = withTiming(0, { duration: 100, easing: Easing.in(Easing.quad) });
-    });
-    setActiveProtocol(next);
-  };
-
-  return (
-    <View style={[styles.protocolCard, { backgroundColor: C.void, borderColor: C.border }]}>
-      <View style={styles.protocolHeaderRow}>
-        <Text style={[styles.protocolLabel, { color: C.text }]}>Protocol Shift</Text>
-        <Text style={[styles.protocolSub, { color: C.textMut }]}>System State</Text>
-      </View>
-      <View style={[styles.protocolToggle, { backgroundColor: C.surface2, borderColor: C.border }]}>
-        <Animated.View style={[styles.protocolThumbWrap, thumbStyle]}>
-          <View style={[styles.protocolThumb, { backgroundColor: C.surface, borderColor: C.border }]} />
-        </Animated.View>
-        {options.map(({ key, label }) => {
-          const active = activeProtocol === key;
-          const color = key === 'FINANCE' ? financeAccent : C.blue;
-          return (
-            <Pressable
-              key={key}
-              style={styles.protocolOption}
-              onPress={() => triggerSync(key)}
-            >
-              <Text style={[styles.protocolOptionText, { color: active ? color : C.textMut }]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      <Animated.View pointerEvents="none" style={[styles.protocolSyncFlash, { backgroundColor: C.surface }, syncStyle]} />
-    </View>
-  );
-}
 
 // ─── Rank Bar ─────────────────────────────────────────────────────────────────
 const RANKS = ['E', 'D', 'C', 'B', 'A', 'S'];
@@ -221,9 +164,73 @@ function rankFromLevel(lvl: number) {
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
+
+const PREFILL_ICONS = [
+  { id: 'Swords', Icon: Swords },
+  { id: 'Flame', Icon: Flame },
+  { id: 'Skull', Icon: Skull },
+  { id: 'Crown', Icon: Crown },
+  { id: 'Ghost', Icon: Ghost },
+  { id: 'Zap', Icon: Zap },
+];
+
 export default function StatsScreen() {
   const { colors: C, isDark } = useTheme();
   const store = useSystemStore();
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [targetProtocol, setTargetProtocol] = useState<ProtocolMode | null>(null);
+  const syncOpacity = useSharedValue(0);
+  const syncScale = useSharedValue(1.1);
+  const syncTextY = useSharedValue(10);
+  
+  const activeProtocol = store.activeProtocol;
+  const router = useRouter();
+
+  const triggerSync = (next: ProtocolMode) => {
+    if (next === activeProtocol || isSyncing) return;
+    setTargetProtocol(next);
+  };
+
+  useEffect(() => {
+    if (!targetProtocol) return;
+
+    setIsSyncing(true);
+    syncOpacity.value = withTiming(1, { duration: 250 });
+    syncScale.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+    syncTextY.value = withTiming(0, { duration: 300 });
+
+    // Halfway through the animation, actually switch the protocol and navigate
+    const switchTimer = setTimeout(() => {
+      store.setActiveProtocol(targetProtocol);
+      if (targetProtocol === 'FINANCE') {
+        router.replace('/(tabs)/pulse');
+      } else {
+        router.replace('/(tabs)');
+      }
+      
+      // Start fading out
+      setTimeout(() => {
+        syncOpacity.value = withTiming(0, { duration: 400 });
+        setTimeout(() => {
+          setIsSyncing(false);
+          setTargetProtocol(null);
+        }, 450);
+      }, 500); // Hold for 500ms
+    }, 400); // 400ms to fade in fully
+
+    return () => clearTimeout(switchTimer);
+  }, [targetProtocol]);
+
+  const syncOverlayStyle = useAnimatedStyle(() => ({
+    opacity: syncOpacity.value,
+    transform: [{ scale: syncScale.value }]
+  }));
+
+  const syncTextStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: syncTextY.value }]
+  }));
+
   const rankColors = isDark ? RANK_COLORS_DARK : RANK_COLORS_LIGHT;
 
   const { rank: currentRank, title } = rankFromLevel(store.level);
@@ -246,6 +253,33 @@ export default function StatsScreen() {
   const curLevelXP  = xpForLevel(store.level);
   const nextLevelXP = xpForLevel(store.level + 1);
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      store.setProfileImage(result.assets[0].uri);
+      setShowAvatarPicker(false);
+    }
+  };
+
+  let AvatarContent = <Text style={[styles.avatarText, { color: C.blue }]}>U</Text>;
+  if (store.profileImage) {
+    if (store.profileImage.startsWith('icon-')) {
+      const iconName = store.profileImage.split('icon-')[1];
+      const FoundIcon = PREFILL_ICONS.find(i => i.id === iconName)?.Icon;
+      if (FoundIcon) {
+        AvatarContent = <FoundIcon size={26} color={C.blue} strokeWidth={2.5} />;
+      }
+    } else {
+      AvatarContent = <Image source={{ uri: store.profileImage }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />;
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -258,9 +292,9 @@ export default function StatsScreen() {
 
         {/* Name card */}
         <View style={[styles.nameCard, { backgroundColor: C.void, borderColor: C.border }]}>
-          <View style={[styles.avatarWrap, { backgroundColor: C.blueDim, borderColor: C.blueBorder }]}>
-            <Text style={[styles.avatarText, { color: C.blue }]}>U</Text>
-          </View>
+          <Pressable onPress={() => setShowAvatarPicker(true)} style={[styles.avatarWrap, { backgroundColor: C.blueDim, borderColor: C.blueBorder }]}>
+            {AvatarContent}
+          </Pressable>
           <View style={styles.nameInfo}>
             <Text style={[styles.hunterName, { color: C.text }]}>Usher</Text>
             <Text style={[styles.hunterTitle, { color: C.textMut }]}>{title}</Text>
@@ -275,7 +309,42 @@ export default function StatsScreen() {
         </View>
 
         <View style={styles.section}>
-          <ProtocolShiftToggle />
+          <View style={[styles.protocolCard, { backgroundColor: C.void, borderColor: C.border }]}>
+            <View style={styles.protocolHeaderRow}>
+              <Text style={[styles.protocolLabel, { color: C.text }]}>Protocol Selection</Text>
+              <Text style={[styles.protocolSub, { color: C.textMut }]}>System State</Text>
+            </View>
+            
+            <View style={styles.protocolCardsRow}>
+              {[
+                { key: 'MONARCH' as ProtocolMode, label: 'Monarch Mode', desc: 'Habit & Quest Tracker', icon: Swords },
+                { key: 'FINANCE' as ProtocolMode, label: 'Sovereign Mode', desc: 'Traders Terminal', icon: TrendingUp },
+              ].map(({ key, label, desc, icon: Icon }) => {
+                const active = activeProtocol === key;
+                const color = key === 'FINANCE' ? protocolAccent('FINANCE', isDark, C.blue) : C.blue;
+                
+                return (
+                  <Pressable
+                    key={key}
+                    style={[
+                      styles.protocolOptionCard,
+                      { 
+                        backgroundColor: active ? color + '12' : C.surface2, 
+                        borderColor: active ? color : C.border 
+                      }
+                    ]}
+                    onPress={() => triggerSync(key)}
+                  >
+                    <View style={[styles.protocolIconWrap, { backgroundColor: active ? color + '20' : C.surface, borderColor: active ? color + '40' : C.border }]}>
+                      <Icon size={18} color={active ? color : C.textMut} strokeWidth={active ? 2.5 : 2} />
+                    </View>
+                    <Text style={[styles.protocolOptionCardLabel, { color: active ? color : C.text }]}>{label}</Text>
+                    <Text style={[styles.protocolOptionCardDesc, { color: C.textMut }]}>{desc}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </View>
 
         {/* 2×2 Stat grid */}
@@ -327,8 +396,36 @@ export default function StatsScreen() {
             <Text style={[styles.titleCardEyebrow, { color: C.textMut }]}>Current Title</Text>
             <Text style={[styles.titleCardTitle, { color: C.text }]}>{title}</Text>
             <Text style={[styles.titleCardSub, { color: C.textMut }]}>
-              A {currentRank}-Rank hunter with ambitions far beyond his rank. Current progress at level {store.level}.
+              A {currentRank}-Rank hunter who has awakened to the "System". Currently optimizing neural pathways and physical output at Level {store.level}.
             </Text>
+          </View>
+        </View>
+
+        {/* Categories / Traits */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: C.text }]}>Hunter Expertise</Text>
+          <View style={{ gap: 10 }}>
+            {[
+              { label: 'Technical Proficiency', stat: 'INT', icon: Zap, color: C.statInt },
+              { label: 'Market Instincts', stat: 'PER', icon: TrendingUp, color: C.statPer },
+              { label: 'Physical Discipline', stat: 'STR', icon: Swords, color: C.statStr },
+              { label: 'System Resilience', stat: 'VIT', icon: Activity, color: C.statVit },
+            ].map((trait, i) => (
+              <View key={i} style={[styles.traitCard, { backgroundColor: C.void, borderColor: C.border }]}>
+                <View style={[styles.traitIcon, { backgroundColor: trait.color + '14', borderColor: trait.color + '40' }]}>
+                  <trait.icon size={16} color={trait.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.traitLabel, { color: C.text }]}>{trait.label}</Text>
+                  <Text style={[styles.traitSub, { color: C.textMut }]}>Synchronized with {trait.stat} Stat</Text>
+                </View>
+                <View style={styles.traitValueWrap}>
+                  <Text style={[styles.traitValue, { color: trait.color }]}>
+                    {STATS_DATA.find(s => s.key === trait.stat)?.value ?? 0}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -348,6 +445,115 @@ export default function StatsScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* Avatar Picker Modal */}
+      <Modal visible={showAvatarPicker} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: C.void, borderColor: C.border }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: C.text }]}>Customize Profile</Text>
+              <Pressable onPress={() => setShowAvatarPicker(false)} style={{ padding: 4 }}>
+                <X size={20} color={C.textMut} />
+              </Pressable>
+            </View>
+            <View style={{ gap: 20 }}>
+              <View>
+                <Text style={[styles.modalSectionLabel, { color: C.textMut }]}>System Prefills</Text>
+                <View style={styles.iconGrid}>
+                  {PREFILL_ICONS.map(({ id, Icon }) => (
+                    <Pressable
+                      key={id}
+                      style={[styles.iconBtn, { backgroundColor: C.surface2, borderColor: store.profileImage === `icon-${id}` ? C.blue : C.border }]}
+                      onPress={() => {
+                        store.setProfileImage(`icon-${id}`);
+                        setShowAvatarPicker(false);
+                      }}
+                    >
+                      <Icon size={28} color={C.blue} strokeWidth={2} />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View>
+                <Text style={[styles.modalSectionLabel, { color: C.textMut }]}>Custom Image</Text>
+                <Pressable
+                  style={[styles.uploadBtn, { backgroundColor: C.surface2, borderColor: C.border }]}
+                  onPress={pickImage}
+                >
+                  <ImageIcon size={20} color={C.text} />
+                  <Text style={[styles.uploadBtnText, { color: C.text }]}>Import Photo</Text>
+                </Pressable>
+              </View>
+
+              {store.profileImage !== null && (
+                <Pressable
+                  style={{ padding: 12, alignItems: 'center' }}
+                  onPress={() => {
+                    store.setProfileImage(null);
+                    setShowAvatarPicker(false);
+                  }}
+                >
+                  <Text style={{ color: '#EF4444', fontFamily: F.medium, fontSize: 13 }}>Reset to Default</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Full Screen Protocol Sync Overlay */}
+      <Modal transparent visible={isSyncing} animationType="none" statusBarTranslucent>
+        <Animated.View 
+          style={[
+            styles.fullSyncOverlay, 
+            { 
+              backgroundColor: (targetProtocol || activeProtocol) === 'FINANCE' 
+                ? (isDark ? '#0A0A0A' : '#F0FDF4') // Ultra light green for FINANCE light
+                : C.void 
+            },
+            syncOverlayStyle
+          ]}
+        >
+          <View style={styles.syncContent}>
+            <Animated.View style={[
+              styles.syncIconWrap, 
+              { borderColor: (targetProtocol || activeProtocol) === 'FINANCE' ? (isDark ? '#34D399' : '#10B981') : C.blue }, 
+              syncTextStyle
+            ]}>
+              { (targetProtocol || activeProtocol) === 'FINANCE' ? (
+                <TrendingUp size={32} color={isDark ? '#34D399' : '#10B981'} />
+              ) : (
+                <Swords size={32} color={C.blue} />
+              )}
+            </Animated.View>
+            <Animated.Text style={[
+              styles.syncTitle, 
+              { color: (targetProtocol || activeProtocol) === 'FINANCE' ? (isDark ? '#fff' : '#111827') : C.text }, 
+              syncTextStyle
+            ]}>
+              {(targetProtocol || activeProtocol) === 'FINANCE' ? 'SOVEREIGN_PROTOCOL' : 'MONARCH_PROTOCOL'}
+            </Animated.Text>
+            <Animated.Text style={[
+              styles.syncSub, 
+              { color: (targetProtocol || activeProtocol) === 'FINANCE' ? (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)') : C.textMut }, 
+              syncTextStyle
+            ]}>
+              OVERRIDING SYSTEM PERMISSIONS...
+            </Animated.Text>
+            <View style={[
+              styles.syncBarBase, 
+              { backgroundColor: (targetProtocol || activeProtocol) === 'FINANCE' ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(16,185,129,0.1)') : C.border }
+            ]}>
+              <Animated.View style={[
+                styles.syncBarFill, 
+                { backgroundColor: (targetProtocol || activeProtocol) === 'FINANCE' ? (isDark ? '#34D399' : '#10B981') : C.blue }
+              ]} />
+            </View>
+          </View>
+        </Animated.View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -455,35 +661,117 @@ const styles = StyleSheet.create({
   },
   themeOptionText: { fontFamily: F.medium, fontSize: 12 },
   themeOptionTextActive: { fontFamily: F.semiBold },
+  traitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  traitIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  traitLabel: {
+    fontFamily: F.semiBold,
+    fontSize: 13,
+  },
+  traitSub: {
+    fontFamily: F.regular,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  traitValueWrap: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  traitValue: {
+    fontFamily: F.bold,
+    fontSize: 16,
+  },
   protocolCard: {
     borderRadius: 14,
     borderWidth: 1,
-    padding: 14,
-    gap: 10,
+    padding: 16,
+    gap: 14,
     overflow: 'hidden',
   },
   protocolHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  protocolLabel: { fontFamily: F.semiBold, fontSize: 14 },
+  protocolLabel: { fontFamily: F.semiBold, fontSize: 15 },
   protocolSub: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.4, textTransform: 'uppercase' },
-  protocolToggle: { flexDirection: 'row', borderRadius: 10, borderWidth: 1, padding: 3, position: 'relative' },
-  protocolThumbWrap: {
-    position: 'absolute',
-    top: 3,
-    bottom: 3,
-    width: '50%',
-    paddingHorizontal: 1.5,
-  },
-  protocolThumb: {
+  protocolCardsRow: { flexDirection: 'row', gap: 12 },
+  protocolOptionCard: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
+    padding: 14,
+    alignItems: 'flex-start',
   },
-  protocolOption: {
-    borderRadius: 8,
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+  protocolIconWrap: {
+    width: 36, height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 10,
   },
-  protocolOptionText: { fontFamily: F.medium, fontSize: 12, textAlign: 'center' },
+  protocolOptionCardLabel: { fontFamily: F.semiBold, fontSize: 13, marginBottom: 4 },
+  protocolOptionCardDesc: { fontFamily: F.regular, fontSize: 11, lineHeight: 15 },
   protocolSyncFlash: { ...StyleSheet.absoluteFillObject, opacity: 0 },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { width: '100%', maxWidth: 360, borderRadius: 20, borderWidth: 1, padding: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontFamily: F.bold, fontSize: 18 },
+  modalSectionLabel: { fontFamily: F.semiBold, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  iconBtn: { width: 60, height: 60, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
+  uploadBtnText: { fontFamily: F.medium, fontSize: 14 },
+  fullSyncOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncContent: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  syncIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  syncTitle: {
+    fontFamily: F.monoBold,
+    fontSize: 18,
+    letterSpacing: 4,
+  },
+  syncSub: {
+    fontFamily: F.mono,
+    fontSize: 10,
+    letterSpacing: 1,
+  },
+  syncBarBase: {
+    width: 200,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginTop: 20,
+    borderRadius: 1,
+    overflow: 'hidden',
+  },
+  syncBarFill: {
+    height: '100%',
+    width: '100%',
+  },
 });
