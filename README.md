@@ -1,50 +1,153 @@
-# Welcome to your Expo app 👋
+# Project Arise
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Project Arise is a gamified personal operating system built with React Native + Expo.
+It combines disciplined self-management (quests, habits, journaling, streaks) with a trading-focused workflow (market pulse, trade journal, event prep, performance vault) inside one progression loop.
 
-## Get started
+## Why This App
 
-1. Install dependencies
+Most productivity apps track tasks, and most trading journals track trades.
+Project Arise connects both:
 
-   ```bash
-   npm install
-   ```
+- complete real-life actions
+- earn XP and stat growth
+- level up your profile
+- switch between life protocol and trading protocol
 
-2. Start the app
+The goal is to make consistency visible, measurable, and motivating.
 
-   ```bash
-   npx expo start
-   ```
+## Core Experience
 
-In the output, you'll find options to open the app in a
+### MONARCH Protocol (Life System)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- `Today`: mission control with daily progress, active objectives, habit snapshot, and quick journal preview
+- `Quests`: rank-based quests with categories, XP rewards, progress-based quests (% tracking), filters, and swipe actions
+- `Habits`: streak tracking, weekly view, calendar history, and XP per habit completion
+- `Journal`: date-based entries with fast access to today's log
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### SOVEREIGN Protocol (Finance System)
 
-## Get a fresh project
+- `Pulse`: market readiness dashboard and perception growth tracking
+- `Terminal`: trade logger with entry/exit capture, pips preview, notes, and XP/Gold gain
+- `News`: economic event checklist with prep toggles that award PER XP
+- `Vault`: wins/losses/net pips summary and milestone-style finance snapshot
 
-When you're ready, run:
+### Profile + Progression
 
-```bash
-npm run reset-project
+- level system with dynamic XP thresholds
+- stat growth across `INT`, `PER`, `STR`, and `VIT`
+- rank progression from `E` to `S`
+- protocol switching with animated transition
+- profile avatar customization and theme mode controls (`light`, `dark`, `auto`)
+
+## Tech Stack
+
+- React Native + Expo (SDK 54)
+- Expo Router (file-based routing)
+- TypeScript
+- Zustand + persisted local storage
+- Reanimated + Gesture Handler
+- NativeWind/Tailwind for utility styling where needed
+- Vitest for logic testing
+
+## Local-First Data Model
+
+State is persisted on-device with AsyncStorage via Zustand persistence middleware.
+
+Tracked entities include:
+
+- quests and categories
+- habits and streak history
+- journal entries
+- trade logs
+- prepared economic events
+- profile and protocol preferences
+
+## Project Structure
+
+```text
+app/
+  (tabs)/
+    index.tsx      # Today dashboard
+    quests.tsx     # Quest management
+    habits.tsx     # Habit tracking
+    journal.tsx    # Daily journal
+    pulse.tsx      # Finance pulse
+    terminal.tsx   # Trade journal
+    news.tsx       # Economic events
+    vault.tsx      # Performance summary
+    stats.tsx      # Profile / protocol switch
+src/
+  store/           # Zustand state + progression logic
+  theme/           # Theme tokens and provider
+  components/      # Shared UI modules
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Getting Started
 
-## Learn more
+### Prerequisites
 
-To learn more about developing your project with Expo, look at the following resources:
+- Node.js 18+
+- npm
+- Expo Go app (optional for mobile testing)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Install
 
-## Join the community
+```bash
+npm install
+```
 
-Join our community of developers creating universal apps.
+### Run
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npm run start
+```
+
+You can then launch on:
+
+- Android emulator/device
+- iOS simulator/device
+- web
+
+### Useful Scripts
+
+```bash
+npm run start
+npm run android
+npm run ios
+npm run web
+npm run lint
+npm run test
+```
+
+## Screenshots
+
+Add app screenshots or screen recordings here for your GitHub showcase.
+
+Suggested sections:
+
+- Today dashboard
+- Quests (add/edit + progress mode)
+- Habits calendar + streaks
+- Finance Terminal + Vault
+- Profile + protocol switch overlay
+
+## Roadmap
+
+- cloud sync / account backup
+- richer analytics and trend charts
+- calendar integrations
+- expanded finance metrics and risk tracking
+- notification and reminder system
+
+## Contributing
+
+Contributions, ideas, and UX improvements are welcome.
+
+1. Fork the repo
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+## License
+
+Add your preferred license file (`MIT`, `Apache-2.0`, etc.) and update this section accordingly.
