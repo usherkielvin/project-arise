@@ -30,10 +30,14 @@ export interface JournalEntry {
   content: string;
 }
 
+export type TradeDirection = 'LONG' | 'SHORT';
+
 export interface TradeLog {
   id: number;
   timestamp: string;
   instrument: string;
+  direction?: TradeDirection;
+  setup?: string;
   entryPrice: number;
   exitPrice: number;
   pips: number;
@@ -441,7 +445,11 @@ export const useSystemStore = create<SystemState>()(
       setProfileImage: (uri) => set({ profileImage: uri }),
 
       addTradeLog: (payload) => set((state) => {
-        const pips = Math.round((payload.exitPrice - payload.entryPrice) * 100);
+        let rawPips = (payload.exitPrice - payload.entryPrice) * 100;
+        if (payload.direction === 'SHORT') {
+          rawPips = (payload.entryPrice - payload.exitPrice) * 100;
+        }
+        const pips = Math.round(rawPips);
         const positive = pips > 0;
         const xpGain = positive ? Math.abs(pips) : Math.max(5, Math.round(Math.abs(pips) * 0.25));
         const newXP = state.totalXP + xpGain;

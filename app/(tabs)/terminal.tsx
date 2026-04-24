@@ -14,6 +14,8 @@ export default function TerminalScreen() {
   const financeGold = useSystemStore((s) => s.financeGold);
 
   const [instrument, setInstrument] = useState('XAUUSD');
+  const [direction, setDirection] = useState<'LONG' | 'SHORT'>('LONG');
+  const [setup, setSetup] = useState('');
   const [entry, setEntry] = useState('');
   const [exit, setExit] = useState('');
   const [notes, setNotes] = useState('');
@@ -21,7 +23,12 @@ export default function TerminalScreen() {
   const parsedEntry = Number(entry);
   const parsedExit = Number(exit);
   const canSubmit = Number.isFinite(parsedEntry) && Number.isFinite(parsedExit) && instrument.trim().length > 0;
-  const previewPips = canSubmit ? Math.round((parsedExit - parsedEntry) * 100) : 0;
+  
+  const previewPips = canSubmit 
+    ? direction === 'LONG' 
+      ? Math.round((parsedExit - parsedEntry) * 100)
+      : Math.round((parsedEntry - parsedExit) * 100)
+    : 0;
 
   const totalPips = useMemo(() => tradeLogs.reduce((sum, t) => sum + t.pips, 0), [tradeLogs]);
 
@@ -36,11 +43,26 @@ export default function TerminalScreen() {
         <View style={[styles.formCard, { backgroundColor: C.void, borderColor: C.border }]}>
           <Text style={[styles.sectionLabel, { color: C.text }]}>New Entry</Text>
           <TextInput value={instrument} onChangeText={setInstrument} style={[styles.input, { borderColor: C.border, color: C.text }]} placeholder="Instrument" placeholderTextColor={C.textMut} />
+          <View style={styles.directionRow}>
+            <Pressable 
+              style={[styles.directionBtn, direction === 'LONG' ? { backgroundColor: C.success, borderColor: C.success } : { borderColor: C.border }]}
+              onPress={() => setDirection('LONG')}
+            >
+              <Text style={[styles.directionText, direction === 'LONG' ? { color: C.void } : { color: C.textMut }]}>LONG</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.directionBtn, direction === 'SHORT' ? { backgroundColor: C.penalty, borderColor: C.penalty } : { borderColor: C.border }]}
+              onPress={() => setDirection('SHORT')}
+            >
+              <Text style={[styles.directionText, direction === 'SHORT' ? { color: C.void } : { color: C.textMut }]}>SHORT</Text>
+            </Pressable>
+          </View>
+          <TextInput value={setup} onChangeText={setSetup} style={[styles.input, { borderColor: C.border, color: C.text }]} placeholder="Setup / Confluence (e.g. FVG, OB)" placeholderTextColor={C.textMut} />
           <View style={styles.row}>
             <TextInput value={entry} onChangeText={setEntry} keyboardType="decimal-pad" style={[styles.input, styles.half, { borderColor: C.border, color: C.text }]} placeholder="Entry" placeholderTextColor={C.textMut} />
             <TextInput value={exit} onChangeText={setExit} keyboardType="decimal-pad" style={[styles.input, styles.half, { borderColor: C.border, color: C.text }]} placeholder="Exit" placeholderTextColor={C.textMut} />
           </View>
-          <TextInput value={notes} onChangeText={setNotes} multiline style={[styles.input, styles.notes, { borderColor: C.border, color: C.text }]} placeholder="Setup notes" placeholderTextColor={C.textMut} />
+          <TextInput value={notes} onChangeText={setNotes} multiline style={[styles.input, styles.notes, { borderColor: C.border, color: C.text }]} placeholder="Trade notes" placeholderTextColor={C.textMut} />
           <Text style={[styles.preview, { color: previewPips >= 0 ? accent : C.penalty }]}>Preview: {previewPips} pips</Text>
           <Pressable
             disabled={!canSubmit}
@@ -49,6 +71,8 @@ export default function TerminalScreen() {
               if (!canSubmit) return;
               addTradeLog({
                 instrument: instrument.trim(),
+                direction,
+                setup: setup.trim(),
                 entryPrice: parsedEntry,
                 exitPrice: parsedExit,
                 notes: notes.trim(),
@@ -56,6 +80,8 @@ export default function TerminalScreen() {
               setEntry('');
               setExit('');
               setNotes('');
+              setSetup('');
+              setDirection('LONG');
             }}
           >
             <Text style={[styles.submitText, { color: C.void }]}>Log Trade</Text>
@@ -80,8 +106,11 @@ export default function TerminalScreen() {
           ) : (
             tradeLogs.slice(0, 8).map((log) => (
               <View key={log.id} style={[styles.logRow, { borderTopColor: C.border }]}>
-                <Text style={[styles.logMain, { color: C.text }]}>{log.instrument} · {log.pips} pips</Text>
-                <Text style={[styles.logSub, { color: C.textMut }]}>{log.entryPrice} → {log.exitPrice}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.logMain, { color: C.text }]}>{log.instrument} · <Text style={{ color: log.direction === 'SHORT' ? C.penalty : C.success }}>{log.direction || 'LONG'}</Text></Text>
+                  <Text style={[styles.logMain, { color: log.pips >= 0 ? accent : C.penalty }]}>{log.pips > 0 ? '+' : ''}{log.pips} pips</Text>
+                </View>
+                <Text style={[styles.logSub, { color: C.textMut }]}>{log.entryPrice} → {log.exitPrice} {log.setup ? `· ${log.setup}` : ''}</Text>
               </View>
             ))
           )}
@@ -101,6 +130,9 @@ const styles = StyleSheet.create({
   formCard: { marginHorizontal: 20, marginTop: 18, borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
   sectionLabel: { fontFamily: F.semiBold, fontSize: 14 },
   row: { flexDirection: 'row', gap: 8 },
+  directionRow: { flexDirection: 'row', gap: 8 },
+  directionBtn: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  directionText: { fontFamily: F.semiBold, fontSize: 13 },
   input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontFamily: F.regular, fontSize: 13 },
   half: { flex: 1 },
   notes: { minHeight: 74, textAlignVertical: 'top' },
