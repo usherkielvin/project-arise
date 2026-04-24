@@ -10,8 +10,12 @@ export default function TerminalScreen() {
   const { colors: C, isDark } = useTheme();
   const accent = protocolAccent('FINANCE', isDark, C.blue);
   const addTradeLog = useSystemStore((s) => s.addTradeLog);
+  const updateTradeLog = useSystemStore((s) => s.updateTradeLog);
+  const deleteTradeLog = useSystemStore((s) => s.deleteTradeLog);
   const tradeLogs = useSystemStore((s) => s.tradeLogs);
   const financeGold = useSystemStore((s) => s.financeGold);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const [instrument, setInstrument] = useState('XAUUSD');
   const [direction, setDirection] = useState<'LONG' | 'SHORT'>('LONG');
@@ -41,7 +45,22 @@ export default function TerminalScreen() {
         </View>
 
         <View style={[styles.formCard, { backgroundColor: C.void, borderColor: C.border }]}>
-          <Text style={[styles.sectionLabel, { color: C.text }]}>New Entry</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={[styles.sectionLabel, { color: C.text }]}>{editingId ? 'Edit Entry' : 'New Entry'}</Text>
+            {editingId && (
+              <Pressable onPress={() => {
+                setEditingId(null);
+                setInstrument('XAUUSD');
+                setDirection('LONG');
+                setSetup('');
+                setEntry('');
+                setExit('');
+                setNotes('');
+              }}>
+                <Text style={{ color: C.textMut, fontFamily: F.medium, fontSize: 12 }}>Cancel</Text>
+              </Pressable>
+            )}
+          </View>
           <TextInput value={instrument} onChangeText={setInstrument} style={[styles.input, { borderColor: C.border, color: C.text }]} placeholder="Instrument" placeholderTextColor={C.textMut} />
           <View style={styles.directionRow}>
             <Pressable 
@@ -69,22 +88,29 @@ export default function TerminalScreen() {
             style={[styles.submitBtn, { backgroundColor: canSubmit ? accent : C.surface2 }]}
             onPress={() => {
               if (!canSubmit) return;
-              addTradeLog({
+              const payload = {
                 instrument: instrument.trim(),
                 direction,
                 setup: setup.trim(),
                 entryPrice: parsedEntry,
                 exitPrice: parsedExit,
                 notes: notes.trim(),
-              });
+              };
+              if (editingId) {
+                updateTradeLog(editingId, payload);
+                setEditingId(null);
+              } else {
+                addTradeLog(payload);
+              }
               setEntry('');
               setExit('');
               setNotes('');
               setSetup('');
               setDirection('LONG');
+              setInstrument('XAUUSD');
             }}
           >
-            <Text style={[styles.submitText, { color: C.void }]}>Log Trade</Text>
+            <Text style={[styles.submitText, { color: C.void }]}>{editingId ? 'Save Changes' : 'Log Trade'}</Text>
           </Pressable>
         </View>
 
@@ -111,6 +137,28 @@ export default function TerminalScreen() {
                   <Text style={[styles.logMain, { color: log.pips >= 0 ? accent : C.penalty }]}>{log.pips > 0 ? '+' : ''}{log.pips} pips</Text>
                 </View>
                 <Text style={[styles.logSub, { color: C.textMut }]}>{log.entryPrice} → {log.exitPrice} {log.setup ? `· ${log.setup}` : ''}</Text>
+                <View style={styles.actionRow}>
+                  <Pressable onPress={() => {
+                    setEditingId(log.id);
+                    setInstrument(log.instrument);
+                    setDirection(log.direction || 'LONG');
+                    setSetup(log.setup || '');
+                    setEntry(String(log.entryPrice));
+                    setExit(String(log.exitPrice));
+                    setNotes(log.notes);
+                  }}>
+                    <Text style={{ color: C.blue, fontFamily: F.medium, fontSize: 12 }}>Edit</Text>
+                  </Pressable>
+                  <Pressable onPress={() => {
+                    deleteTradeLog(log.id);
+                    if (editingId === log.id) {
+                      setEditingId(null);
+                      setEntry(''); setExit(''); setNotes(''); setSetup(''); setDirection('LONG'); setInstrument('XAUUSD');
+                    }
+                  }}>
+                    <Text style={{ color: C.penalty, fontFamily: F.medium, fontSize: 12 }}>Delete</Text>
+                  </Pressable>
+                </View>
               </View>
             ))
           )}
@@ -148,4 +196,5 @@ const styles = StyleSheet.create({
   logRow: { borderTopWidth: 1, paddingTop: 10, marginTop: 8 },
   logMain: { fontFamily: F.medium, fontSize: 13 },
   logSub: { fontFamily: F.regular, fontSize: 12, marginTop: 2 },
+  actionRow: { flexDirection: 'row', gap: 12, marginTop: 6 },
 });

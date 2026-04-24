@@ -3,22 +3,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
-import { protocolAccent } from '../../src/theme/colors';
 import { useSystemStore } from '../../src/store/useSystemStore';
 
 export default function VaultScreen() {
-  const { colors: C, isDark } = useTheme();
-  const accent = protocolAccent('FINANCE', isDark, C.blue);
+  const { colors: C } = useTheme();
   const tradeLogs = useSystemStore((s) => s.tradeLogs);
-  const financeGold = useSystemStore((s) => s.financeGold);
-  const preparedNewsEvents = useSystemStore((s) => s.preparedNewsEvents);
-
-  const stats = useMemo(() => {
-    const wins = tradeLogs.filter((t) => t.pips > 0).length;
-    const losses = tradeLogs.filter((t) => t.pips <= 0).length;
-    const totalPips = tradeLogs.reduce((sum, t) => sum + t.pips, 0);
-    return { wins, losses, totalPips };
-  }, [tradeLogs]);
 
   const logsByDate = useMemo(() => {
     const map: Record<string, { wins: number; losses: number; pips: number }> = {};
@@ -33,6 +22,49 @@ export default function VaultScreen() {
   }, [tradeLogs]);
 
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  const currentMonthLogs = useMemo(() => {
+    return tradeLogs.filter(log => {
+      const d = new Date(log.timestamp);
+      return d.getFullYear() === currentDate.getFullYear() && d.getMonth() === currentDate.getMonth();
+    });
+  }, [tradeLogs, currentDate]);
+
+  const monthStats = useMemo(() => {
+    let pnl = 0;
+    let wins = 0;
+    let losses = 0;
+    const daysMap: Record<string, number> = {};
+
+    currentMonthLogs.forEach(log => {
+      pnl += log.pips;
+      if (log.pips > 0) wins++;
+      else losses++;
+      
+      const dateStr = log.timestamp.split('T')[0];
+      if (!daysMap[dateStr]) daysMap[dateStr] = 0;
+      daysMap[dateStr] += log.pips;
+    });
+
+    const totalTrades = wins + losses;
+    const winRate = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
+    const tradingDays = Object.keys(daysMap).length;
+    
+    let bestDayPips = -Infinity;
+    let bestDay = '—';
+    if (tradingDays > 0) {
+      Object.entries(daysMap).forEach(([date, pips]) => {
+        if (pips > bestDayPips) {
+          bestDayPips = pips;
+        }
+      });
+      if (bestDayPips !== -Infinity) {
+        bestDay = bestDayPips > 0 ? `+$${bestDayPips}` : `-$${Math.abs(bestDayPips)}`;
+      }
+    }
+
+    return { pnl, winRate, bestDay, totalTrades, tradingDays };
+  }, [currentMonthLogs]);
 
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -53,87 +85,94 @@ export default function VaultScreen() {
   }, [currentDate]);
 
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthlyGoal = 500;
+  const progressPercent = Math.min(100, Math.max(0, (monthStats.pnl / monthlyGoal) * 100));
+
+  const today = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={[styles.eyebrow, { color: C.textMut }]}>Financial Milestones</Text>
-          <Text style={[styles.title, { color: C.text }]}>Vault</Text>
+          <Text style={[styles.title, { color: C.text }]}>Calendar</Text>
         </View>
 
-        <View style={styles.grid}>
-          <View style={[styles.metric, { backgroundColor: C.void, borderColor: C.border }]}>
-            <Text style={[styles.metricLabel, { color: C.textMut }]}>Gold</Text>
-            <Text style={[styles.metricVal, { color: C.text }]}>{financeGold}</Text>
-          </View>
-          <View style={[styles.metric, { backgroundColor: C.void, borderColor: C.border }]}>
-            <Text style={[styles.metricLabel, { color: C.textMut }]}>Prepared</Text>
-            <Text style={[styles.metricVal, { color: C.text }]}>{preparedNewsEvents.filter((e) => e.prepared).length}</Text>
-          </View>
+        <View style={styles.calendarHeaderRow}>
+          <Pressable onPress={() => setCurrentDate(new Date(currentYear, currentMonth - 1, 1))} style={styles.navBtn}>
+            <Text style={{color: C.text, fontFamily: F.bold, fontSize: 18}}>{'<'}</Text>
+          </Pressable>
+          <Text style={[styles.cardTitle, { color: C.text }]}>{monthName}</Text>
+          <Pressable onPress={() => setCurrentDate(new Date(currentYear, currentMonth + 1, 1))} style={styles.navBtn}>
+            <Text style={{color: C.text, fontFamily: F.bold, fontSize: 18}}>{'>'}</Text>
+          </Pressable>
         </View>
 
-        <View style={[styles.card, { backgroundColor: C.void, borderColor: C.border }]}>
-          <Text style={[styles.cardTitle, { color: C.text }]}>Trade History</Text>
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: C.textMut }]}>Wins</Text>
-            <Text style={[styles.rowVal, { color: accent }]}>{stats.wins}</Text>
+        <View style={styles.goalContainer}>
+          <Text style={[styles.goalTitle, { color: C.text }]}>◎ Monthly goal</Text>
+          <View style={[styles.progressBarBg, { backgroundColor: C.surface2 }]}>
+             <View style={[styles.progressBarFill, { backgroundColor: C.success, width: `${progressPercent}%` }]} />
           </View>
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: C.textMut }]}>Losses</Text>
-            <Text style={[styles.rowVal, { color: C.penalty }]}>{stats.losses}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: C.textMut }]}>Net Pips</Text>
-            <Text style={[styles.rowVal, { color: C.text }]}>{stats.totalPips}</Text>
+          <View style={styles.goalLabels}>
+             <Text style={[styles.goalCurrent, { color: C.success }]}>{monthStats.pnl > 0 ? '+' : monthStats.pnl < 0 ? '-' : ''}${Math.abs(monthStats.pnl)}</Text>
+             <Text style={[styles.goalTarget, { color: C.textMut }]}>of ${monthlyGoal}</Text>
           </View>
         </View>
-
-        <View style={[styles.card, { backgroundColor: C.void, borderColor: C.border }]}>
-          <Text style={[styles.cardTitle, { color: C.text }]}>Latest Milestone</Text>
-          <Text style={[styles.milestoneText, { color: C.textMut }]}>
-            {tradeLogs.length > 0
-              ? `Most recent trade: ${tradeLogs[0].instrument} (${tradeLogs[0].pips} pips).`
-              : 'Log your first trade in Terminal to unlock milestones.'}
-          </Text>
+        
+        <View style={styles.calendarGrid}>
+          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, i) => (
+            <Text key={`h-${i}`} style={[styles.calDayHeader, { color: C.textMut }]}>{day}</Text>
+          ))}
+          {calendarDays.map((item, i) => {
+            if (!item) return <View key={`e-${i}`} style={styles.calCell} />;
+            const dayStats = logsByDate[item.dateStr];
+            const isToday = currentYear === today.getFullYear() && currentMonth === today.getMonth() && item.day === today.getDate();
+            
+            return (
+              <View key={`d-${i}`} style={[styles.calCell, isToday && { borderColor: C.borderMid, borderWidth: 1 }]}>
+                <Text style={[styles.calDayText, { color: isToday ? C.text : C.textSub }]}>{item.day}</Text>
+                {dayStats ? (
+                  <Text style={[styles.dollarText, { color: dayStats.pips >= 0 ? C.success : C.penalty }]}>
+                    {dayStats.pips > 0 ? '+' : dayStats.pips < 0 ? '-' : ''}${Math.abs(dayStats.pips)}
+                  </Text>
+                ) : (
+                  <View style={styles.emptyDollarSpacer} />
+                )}
+              </View>
+            );
+          })}
         </View>
 
-        <View style={[styles.card, { backgroundColor: C.void, borderColor: C.border }]}>
-          <View style={styles.calendarHeaderRow}>
-            <Text style={[styles.cardTitle, { color: C.text }]}>{monthName}</Text>
-            <View style={{flexDirection: 'row', gap: 16}}>
-              <Pressable onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>
-                <Text style={{color: C.textMut, fontFamily: F.bold, fontSize: 16}}>{'<'}</Text>
-              </Pressable>
-              <Pressable onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>
-                <Text style={{color: C.textMut, fontFamily: F.bold, fontSize: 16}}>{'>'}</Text>
-              </Pressable>
+        <View style={styles.monthSection}>
+          <Text style={[styles.sectionTitle, { color: C.textMut }]}>YOUR MONTH</Text>
+          <View style={styles.monthStatsGrid}>
+            <View style={[styles.statBox, { backgroundColor: C.void }]}>
+              <Text style={[styles.statBoxValue, { color: monthStats.pnl >= 0 ? C.success : C.penalty }]}>
+                {monthStats.pnl > 0 ? '+' : monthStats.pnl < 0 ? '-' : ''}${Math.abs(monthStats.pnl)}
+              </Text>
+              <Text style={[styles.statBoxLabel, { color: C.textMut }]}>P&L</Text>
             </View>
-          </View>
-          
-          <View style={styles.calendarGrid}>
-            {['S','M','T','W','T','F','S'].map((day, i) => (
-              <Text key={`h-${i}`} style={[styles.calDayHeader, { color: C.textMut }]}>{day}</Text>
-            ))}
-            {calendarDays.map((item, i) => {
-              if (!item) return <View key={`e-${i}`} style={styles.calCell} />;
-              const dayStats = logsByDate[item.dateStr];
-              
-              // We'll use a very light overlay of success/penalty if there is data
-              let bgColor = 'transparent';
-              if (dayStats) {
-                bgColor = dayStats.pips >= 0 ? C.success + '22' : C.penalty + '22';
-              }
-
-              return (
-                <View key={`d-${i}`} style={[styles.calCell, { backgroundColor: bgColor }]}>
-                  <Text style={[styles.calDayText, { color: C.text }]}>{item.day}</Text>
-                  {dayStats && (
-                    <View style={[styles.dot, { backgroundColor: dayStats.pips >= 0 ? C.success : C.penalty }]} />
-                  )}
-                </View>
-              );
-            })}
+            <View style={[styles.statBox, { backgroundColor: C.void }]}>
+              <Text style={[styles.statBoxValue, { color: C.text }]}>{monthStats.winRate}%</Text>
+              <Text style={[styles.statBoxLabel, { color: C.textMut }]}>Win rate</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: C.void }]}>
+              <Text style={[styles.statBoxValue, { color: C.text }]}>{monthStats.bestDay}</Text>
+              <Text style={[styles.statBoxLabel, { color: C.textMut }]}>Best day</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: C.void }]}>
+              <Text style={[styles.statBoxValue, { color: C.text }]}>{monthStats.totalTrades}</Text>
+              <Text style={[styles.statBoxLabel, { color: C.textMut }]}>Trades</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: C.void }]}>
+              <Text style={[styles.statBoxValue, { color: C.text }]}>{monthStats.tradingDays}</Text>
+              <Text style={[styles.statBoxLabel, { color: C.textMut }]}>Trading days</Text>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: C.void }]}>
+              <Text style={[styles.statBoxValue, { color: C.text }]}>{monthStats.totalTrades}</Text>
+              <Text style={[styles.statBoxLabel, { color: C.textMut }]}>Journaled</Text>
+            </View>
           </View>
         </View>
 
@@ -145,23 +184,32 @@ export default function VaultScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingTop: 24, gap: 4 },
-  eyebrow: { fontFamily: F.mono, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase' },
-  title: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
-  grid: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: 18 },
-  metric: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 14, gap: 3 },
-  metricLabel: { fontFamily: F.mono, fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase' },
-  metricVal: { fontFamily: F.bold, fontSize: 24, letterSpacing: -0.6 },
-  card: { marginHorizontal: 20, marginTop: 10, borderRadius: 12, borderWidth: 1, padding: 14, gap: 8 },
-  cardTitle: { fontFamily: F.semiBold, fontSize: 14 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowLabel: { fontFamily: F.regular, fontSize: 13 },
-  rowVal: { fontFamily: F.semiBold, fontSize: 14 },
-  milestoneText: { fontFamily: F.regular, fontSize: 13, lineHeight: 18 },
-  calendarHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
-  calDayHeader: { width: '14.28%', textAlign: 'center', fontFamily: F.semiBold, fontSize: 12, marginBottom: 8 },
-  calCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8, marginBottom: 2 },
-  calDayText: { fontFamily: F.medium, fontSize: 13 },
-  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2, position: 'absolute', bottom: 4 },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+  title: { fontFamily: F.bold, fontSize: 28, letterSpacing: -0.5 },
+  
+  calendarHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginBottom: 20 },
+  cardTitle: { fontFamily: F.semiBold, fontSize: 16 },
+  navBtn: { paddingHorizontal: 12, paddingVertical: 4 },
+
+  goalContainer: { marginHorizontal: 20, marginBottom: 24 },
+  goalTitle: { fontFamily: F.medium, fontSize: 14, marginBottom: 12 },
+  progressBarBg: { height: 6, borderRadius: 3, width: '100%', overflow: 'hidden' },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+  goalLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  goalCurrent: { fontFamily: F.bold, fontSize: 14 },
+  goalTarget: { fontFamily: F.regular, fontSize: 12 },
+
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, marginBottom: 32 },
+  calDayHeader: { width: '14.28%', textAlign: 'center', fontFamily: F.semiBold, fontSize: 11, marginBottom: 16 },
+  calCell: { width: '14.28%', aspectRatio: 0.85, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
+  calDayText: { fontFamily: F.medium, fontSize: 15 },
+  dollarText: { fontFamily: F.bold, fontSize: 10, marginTop: 4 },
+  emptyDollarSpacer: { height: 14, marginTop: 4 },
+
+  monthSection: { marginHorizontal: 20 },
+  sectionTitle: { fontFamily: F.semiBold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 },
+  monthStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statBox: { width: '31%', aspectRatio: 1.4, borderRadius: 12, padding: 12, justifyContent: 'center', alignItems: 'center' },
+  statBoxValue: { fontFamily: F.bold, fontSize: 18, marginBottom: 4 },
+  statBoxLabel: { fontFamily: F.medium, fontSize: 11 },
 });

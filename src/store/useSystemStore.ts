@@ -97,6 +97,8 @@ interface SystemState {
   setActiveProtocol: (mode: ProtocolMode) => void;
   setProfileImage: (uri: string | null) => void;
   addTradeLog: (payload: Omit<TradeLog, 'id' | 'timestamp' | 'pips'>) => void;
+  updateTradeLog: (id: number, payload: Omit<TradeLog, 'id' | 'timestamp' | 'pips'>) => void;
+  deleteTradeLog: (id: number) => void;
   togglePreparedNewsEvent: (event: Omit<PreparedNewsEvent, 'prepared'>) => void;
 
   checkMidnightReset: () => void;
@@ -467,6 +469,66 @@ export const useSystemStore = create<SystemState>()(
             ...state.tradeLogs,
           ],
           financeGold: state.financeGold + Math.max(0, pips),
+          totalXP: newXP,
+          level: newLevel,
+          statPoints: newStatPoints,
+        };
+      }),
+
+      deleteTradeLog: (id) => set((state) => {
+        const log = state.tradeLogs.find(t => t.id === id);
+        if (!log) return state;
+
+        const pips = log.pips;
+        const positive = pips > 0;
+        const xpGain = positive ? Math.abs(pips) : Math.max(5, Math.round(Math.abs(pips) * 0.25));
+        
+        const newGold = Math.max(0, state.financeGold - Math.max(0, pips));
+        const newXP = Math.max(0, state.totalXP - xpGain);
+        const { newLevel } = computeLevelUp(1, newXP);
+        const newStatPoints = { ...state.statPoints, PER: Math.max(0, state.statPoints.PER - xpGain) };
+
+        return {
+          tradeLogs: state.tradeLogs.filter(t => t.id !== id),
+          financeGold: newGold,
+          totalXP: newXP,
+          level: newLevel,
+          statPoints: newStatPoints,
+        };
+      }),
+
+      updateTradeLog: (id, payload) => set((state) => {
+        const logIndex = state.tradeLogs.findIndex(t => t.id === id);
+        if (logIndex === -1) return state;
+        
+        const oldLog = state.tradeLogs[logIndex];
+        const oldPips = oldLog.pips;
+        const oldPositive = oldPips > 0;
+        const oldXpGain = oldPositive ? Math.abs(oldPips) : Math.max(5, Math.round(Math.abs(oldPips) * 0.25));
+        
+        let rawPips = (payload.exitPrice - payload.entryPrice) * 100;
+        if (payload.direction === 'SHORT') {
+          rawPips = (payload.entryPrice - payload.exitPrice) * 100;
+        }
+        const newPips = Math.round(rawPips);
+        const newPositive = newPips > 0;
+        const newXpGain = newPositive ? Math.abs(newPips) : Math.max(5, Math.round(Math.abs(newPips) * 0.25));
+
+        const newGold = Math.max(0, state.financeGold - Math.max(0, oldPips) + Math.max(0, newPips));
+        const newXP = Math.max(0, state.totalXP - oldXpGain + newXpGain);
+        const { newLevel } = computeLevelUp(1, newXP);
+        const newStatPoints = { ...state.statPoints, PER: Math.max(0, state.statPoints.PER - oldXpGain + newXpGain) };
+
+        const updatedLogs = [...state.tradeLogs];
+        updatedLogs[logIndex] = {
+          ...oldLog,
+          ...payload,
+          pips: newPips,
+        };
+
+        return {
+          tradeLogs: updatedLogs,
+          financeGold: newGold,
           totalXP: newXP,
           level: newLevel,
           statPoints: newStatPoints,
