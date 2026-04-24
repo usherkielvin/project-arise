@@ -25,31 +25,42 @@ export default function TerminalScreen() {
   const [notes, setNotes] = useState('');
 
   const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [livePercent, setLivePercent] = useState<number | null>(null);
   const [fetching, setFetching] = useState(false);
 
   const handleFetchLivePrice = async (sym: string) => {
     setFetching(true);
     setLivePrice(null);
+    setLivePercent(null);
     try {
       const upper = sym.trim().toUpperCase();
       let price = 0;
+      let prevClose = 0;
       if (upper === 'XAUUSD' || upper === 'GOLD') {
         const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/GC=F');
         const data = await res.json();
         price = data.chart.result[0].meta.regularMarketPrice;
+        prevClose = data.chart.result[0].meta.previousClose;
       } else if (upper.includes('USD') && (upper.startsWith('BTC') || upper.startsWith('ETH') || upper.startsWith('SOL'))) {
         const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${upper.replace('USD', '-USD')}`);
         const data = await res.json();
         price = data.chart.result[0].meta.regularMarketPrice;
+        prevClose = data.chart.result[0].meta.previousClose;
       } else if (upper.includes('USD')) {
         const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${upper}=X`);
         const data = await res.json();
         price = data.chart.result[0].meta.regularMarketPrice;
+        prevClose = data.chart.result[0].meta.previousClose;
       }
       
       if (price) {
         setLivePrice(price);
         setEntry((prev) => prev ? prev : String(price));
+        if (prevClose) {
+          const diff = price - prevClose;
+          const pct = (diff / prevClose) * 100;
+          setLivePercent(Number(pct.toFixed(2)));
+        }
       }
     } catch (e) {
       console.log('Error fetching live price:', e);
@@ -91,6 +102,7 @@ export default function TerminalScreen() {
                 setExit('');
                 setNotes('');
                 setLivePrice(null);
+                setLivePercent(null);
               }}>
                 <Text style={{ color: C.textMut, fontFamily: F.medium, fontSize: 12 }}>Cancel</Text>
               </Pressable>
@@ -111,7 +123,14 @@ export default function TerminalScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <TextInput value={instrument} onChangeText={setInstrument} style={[styles.input, { borderColor: C.border, color: C.text, flex: 1 }]} placeholder="Instrument" placeholderTextColor={C.textMut} />
             {livePrice && (
-              <Text style={{ color: C.success, fontFamily: F.bold, fontSize: 13, marginLeft: 12 }}>${livePrice}</Text>
+              <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
+                <Text style={{ color: C.text, fontFamily: F.bold, fontSize: 13 }}>Price: ${livePrice}</Text>
+                {livePercent !== null && (
+                  <Text style={{ color: livePercent >= 0 ? C.success : C.penalty, fontFamily: F.medium, fontSize: 11 }}>
+                    {livePercent > 0 ? '+' : ''}{livePercent}% today
+                  </Text>
+                )}
+              </View>
             )}
           </View>
           <View style={styles.directionRow}>
