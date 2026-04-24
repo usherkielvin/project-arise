@@ -24,6 +24,40 @@ export default function TerminalScreen() {
   const [exit, setExit] = useState('');
   const [notes, setNotes] = useState('');
 
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  const handleFetchLivePrice = async (sym: string) => {
+    setFetching(true);
+    setLivePrice(null);
+    try {
+      const upper = sym.trim().toUpperCase();
+      let price = 0;
+      if (upper === 'XAUUSD' || upper === 'GOLD') {
+        const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/GC=F');
+        const data = await res.json();
+        price = data.chart.result[0].meta.regularMarketPrice;
+      } else if (upper.includes('USD') && (upper.startsWith('BTC') || upper.startsWith('ETH') || upper.startsWith('SOL'))) {
+        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${upper.replace('USD', '-USD')}`);
+        const data = await res.json();
+        price = data.chart.result[0].meta.regularMarketPrice;
+      } else if (upper.includes('USD')) {
+        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${upper}=X`);
+        const data = await res.json();
+        price = data.chart.result[0].meta.regularMarketPrice;
+      }
+      
+      if (price) {
+        setLivePrice(price);
+        setEntry((prev) => prev ? prev : String(price));
+      }
+    } catch (e) {
+      console.log('Error fetching live price:', e);
+    } finally {
+      setFetching(false);
+    }
+  };
+
   const parsedEntry = Number(entry);
   const parsedExit = Number(exit);
   const canSubmit = Number.isFinite(parsedEntry) && Number.isFinite(parsedExit) && instrument.trim().length > 0;
@@ -56,12 +90,30 @@ export default function TerminalScreen() {
                 setEntry('');
                 setExit('');
                 setNotes('');
+                setLivePrice(null);
               }}>
                 <Text style={{ color: C.textMut, fontFamily: F.medium, fontSize: 12 }}>Cancel</Text>
               </Pressable>
             )}
           </View>
-          <TextInput value={instrument} onChangeText={setInstrument} style={[styles.input, { borderColor: C.border, color: C.text }]} placeholder="Instrument" placeholderTextColor={C.textMut} />
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 2 }}>
+            <Pressable onPress={() => { setInstrument('XAUUSD'); handleFetchLivePrice('XAUUSD'); }} style={[styles.presetBtn, { borderColor: C.border }]}>
+               <Text style={{color: C.textMut, fontSize: 11}}>XAUUSD</Text>
+            </Pressable>
+            <Pressable onPress={() => { setInstrument('BTCUSD'); handleFetchLivePrice('BTCUSD'); }} style={[styles.presetBtn, { borderColor: C.border }]}>
+               <Text style={{color: C.textMut, fontSize: 11}}>BTCUSD</Text>
+            </Pressable>
+            <Pressable onPress={() => handleFetchLivePrice(instrument)} style={[styles.presetBtn, { borderColor: accent, backgroundColor: accent + '15' }]}>
+               <Text style={{color: accent, fontSize: 11, fontFamily: F.semiBold}}>{fetching ? 'Fetching...' : 'Get Live Price'}</Text>
+            </Pressable>
+          </View>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <TextInput value={instrument} onChangeText={setInstrument} style={[styles.input, { borderColor: C.border, color: C.text, flex: 1 }]} placeholder="Instrument" placeholderTextColor={C.textMut} />
+            {livePrice && (
+              <Text style={{ color: C.success, fontFamily: F.bold, fontSize: 13, marginLeft: 12 }}>${livePrice}</Text>
+            )}
+          </View>
           <View style={styles.directionRow}>
             <Pressable 
               style={[styles.directionBtn, direction === 'LONG' ? { backgroundColor: C.success, borderColor: C.success } : { borderColor: C.border }]}
@@ -197,4 +249,5 @@ const styles = StyleSheet.create({
   logMain: { fontFamily: F.medium, fontSize: 13 },
   logSub: { fontFamily: F.regular, fontSize: 12, marginTop: 2 },
   actionRow: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  presetBtn: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
 });
