@@ -298,14 +298,15 @@ export default function HabitsScreen() {
 
       <Modal
         visible={!!selectedHabit}
-        transparent={false}
+        transparent
         animationType="slide"
-        presentationStyle="fullScreen"
+        presentationStyle="overFullScreen"
         statusBarTranslucent
         onRequestClose={() => setSelectedHabitId(null)}
       >
         {selectedHabit && (
-          <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
+          <View style={[styles.modalBackdrop, { backgroundColor: C.void }]}>
+            <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
             <View
               style={[
                 styles.modalTop,
@@ -433,20 +434,22 @@ export default function HabitsScreen() {
                 </View>
               </View>
             )}
-          </SafeAreaView>
+            </SafeAreaView>
+          </View>
         )}
       </Modal>
 
       <Modal
         visible={addMode}
-        transparent={false}
+        transparent
         animationType="slide"
-        presentationStyle="fullScreen"
+        presentationStyle="overFullScreen"
         statusBarTranslucent
         onRequestClose={() => setAddMode(false)}
       >
-        <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <View style={[styles.modalBackdrop, { backgroundColor: C.void }]}>
+          <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
             <View
               style={[
                 styles.modalTop,
@@ -512,8 +515,9 @@ export default function HabitsScreen() {
                  <Text style={{ fontFamily: F.bold, fontSize: 16, color: '#fff' }}>Create Habit</Text>
               </Pressable>
             </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -521,6 +525,7 @@ export default function HabitsScreen() {
 
 const styles = StyleSheet.create({
   root:     { flex: 1 },
+  modalBackdrop: { flex: 1 },
   header:   { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 4, gap: 12 },
   title:    { fontFamily: F.bold,    fontSize: 28, letterSpacing: -0.8 },
   subtitle: { fontFamily: F.regular, fontSize: 13 },

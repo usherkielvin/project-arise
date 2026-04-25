@@ -50,7 +50,7 @@ export default function TabLayout() {
         name="index"
         options={{
           href: activeProtocol === 'MONARCH' ? undefined : null,
-          title: 'Today',
+          title: 'Home',
           tabBarIcon: ({ color }) => <LayoutDashboard color={color} size={20} strokeWidth={1.8} />,
         }}
       />

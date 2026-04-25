@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { useSystemStore } from '../../src/store/useSystemStore';
-import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react-native';
+import { Plus, X, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutRight } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -68,9 +68,9 @@ export default function JournalScreen() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.void }]}>
       <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-            <Text style={[styles.listTitle, { color: C.text }]}>Journal</Text>
-            <ChevronDown size={20} color={C.text} style={{ marginLeft: 4, marginTop: 4 }} />
+        <View>
+          <Text style={[styles.listTitle, { color: C.text }]}>Journal</Text>
+          <Text style={[styles.subtitle, { color: C.textMut }]}>Daily logs and reflections.</Text>
         </View>
         <Pressable onPress={openToday} style={styles.addBtn}>
           <Plus size={24} color={C.text} />
@@ -186,19 +186,20 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 24,
+    paddingTop: 24,
     paddingBottom: 20,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   listTitle: {
     fontFamily: F.bold,
     fontSize: 28,
+  },
+  subtitle: {
+    fontFamily: F.regular,
+    fontSize: 13,
+    marginTop: 2,
   },
   addBtn: {
     width: 40,

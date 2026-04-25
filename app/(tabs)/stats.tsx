@@ -1,5 +1,5 @@
 /**
- * Stats Screen — Hunter Profile. Full dark mode support + theme toggle.
+ * Stats screen. Full dark mode support + theme toggle.
  */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Image, Modal } from 'react-native';
@@ -286,8 +286,7 @@ export default function StatsScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.eyebrow, { color: C.textMut }]}>Hunter Profile</Text>
-          <Text style={[styles.title, { color: C.text }]}>Status</Text>
+          <Text style={[styles.title, { color: C.text }]}>Profile</Text>
         </View>
 
         {/* Name card */}
@@ -396,7 +395,7 @@ export default function StatsScreen() {
             <Text style={[styles.titleCardEyebrow, { color: C.textMut }]}>Current Title</Text>
             <Text style={[styles.titleCardTitle, { color: C.text }]}>{title}</Text>
             <Text style={[styles.titleCardSub, { color: C.textMut }]}>
-              A {currentRank}-Rank hunter who has awakened to the "System". Currently optimizing neural pathways and physical output at Level {store.level}.
+              A {currentRank}-Rank hunter who has awakened to the System. Currently optimizing neural pathways and physical output at Level {store.level}.
             </Text>
           </View>
         </View>
@@ -561,7 +560,6 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 4, gap: 4 },
-  eyebrow: { fontFamily: F.mono, fontSize: 10, letterSpacing: 3, textTransform: 'uppercase' },
   title: { fontFamily: F.bold, fontSize: 36, letterSpacing: -1.2, marginTop: 4 },
 
   // Name card

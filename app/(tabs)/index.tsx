@@ -1,5 +1,5 @@
 /**
- * Home — Today's Protocol. Command Center. Themed (light + dark).
+ * Home screen. Command Center. Themed (light + dark).
  */
 import React, { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';

@@ -96,7 +96,8 @@ export default function VaultScreen() {
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: C.text }]}>Calendar</Text>
+          <Text style={[styles.title, { color: C.text }]}>Vault</Text>
+          <Text style={[styles.sub, { color: C.textMut }]}>Monthly calendar and trading performance.</Text>
         </View>
 
         <View style={styles.calendarHeaderRow}>
@@ -184,8 +185,9 @@ export default function VaultScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
-  title: { fontFamily: F.bold, fontSize: 28, letterSpacing: -0.5 },
+  header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8, gap: 4 },
+  title: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
+  sub: { fontFamily: F.regular, fontSize: 13 },
   
   calendarHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginBottom: 20 },
   cardTitle: { fontFamily: F.semiBold, fontSize: 16 },

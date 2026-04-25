@@ -23,7 +23,6 @@ export default function NewsScreen() {
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={[styles.eyebrow, { color: C.textMut }]}>Economic Calendar</Text>
           <Text style={[styles.title, { color: C.text }]}>News</Text>
           <Text style={[styles.sub, { color: C.textMut }]}>Mark prepared events to gain +50 PER XP.</Text>
         </View>
@@ -59,7 +58,6 @@ export default function NewsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 24, gap: 4 },
-  eyebrow: { fontFamily: F.mono, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase' },
   title: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
   sub: { fontFamily: F.regular, fontSize: 13 },
   card: { marginHorizontal: 20, marginTop: 18, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },

@@ -53,9 +53,8 @@ export default function InventoryScreen() {
     <SafeAreaView style={[styles.root, { backgroundColor: C.void }]}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={[styles.eyebrow, { color: C.blue }]}>{`HUNTER'S CACHE`}</Text>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: C.text }]}>Artifacts</Text>
+          <Text style={[styles.title, { color: C.text }]}>Inventory</Text>
           <View style={styles.goldPill}>
             <Text style={[styles.goldIcon, { color: C.gold }]}>✦</Text>
             <Text style={[styles.goldVal, { color: C.gold }]}>340</Text>
@@ -166,11 +165,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     gap: 8,
-  },
-  eyebrow: {
-    fontFamily: F.mono,
-    fontSize: 9,
-    letterSpacing: 4,
   },
   titleRow: {
     flexDirection: 'row',

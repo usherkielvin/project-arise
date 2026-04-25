@@ -102,7 +102,6 @@ export default function TerminalScreen() {
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={[styles.eyebrow, { color: C.textMut }]}>Trade Journal</Text>
           <Text style={[styles.title, { color: C.text }]}>Terminal</Text>
         </View>
 
@@ -266,7 +265,6 @@ export default function TerminalScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 24, gap: 4 },
-  eyebrow: { fontFamily: F.mono, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase' },
   title: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
   formCard: { marginHorizontal: 20, marginTop: 18, borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },
   sectionLabel: { fontFamily: F.semiBold, fontSize: 14 },
