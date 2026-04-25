@@ -2,14 +2,14 @@
  * Habits Screen — Minimalist habit tracker. Full dark mode support.
  */
 import React, { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, TextInput, Keyboard, Modal } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, TextInput, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withSequence, FadeIn, Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useSystemStore, Habit, HabitCategory } from '../../src/store/useSystemStore';
+import { useSystemStore, Habit, HabitCategory, computeHabitTotalXP } from '../../src/store/useSystemStore';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { Flame, Heart, Brain, Briefcase, Zap, Plus, X, Check, ChevronLeft, ChevronRight, Trash2, Sparkles } from 'lucide-react-native';
@@ -95,50 +95,65 @@ function HabitRow({ habit, onComplete, onUncheck, onOpen, onDelete, index }: {
           {/* Left: category accent bar */}
           <View style={[styles.accentBar, { backgroundColor: color }]} />
 
-          {/* Center: title + meta row */}
-          <View style={styles.habitContent}>
-            <Text style={[
-              styles.habitTitle,
-              { color: todayDone ? C.textMut : C.text },
-            ]} numberOfLines={1}>
-              {habit.title}
-            </Text>
-            <View style={styles.habitMeta}>
-              <View style={styles.trackMetaRow}>
-                <View style={styles.streakPill}>
-                  <Flame size={11} color={habit.streak >= 3 ? '#F97316' : C.textFnt} strokeWidth={2} fill={habit.streak >= 3 ? '#F97316' : 'transparent'} />
-                  <Text style={[styles.streakText, { color: habit.streak >= 3 ? '#F97316' : C.textMut }]}>{habit.streak}</Text>
+          {/* Center: meta/checks on top, title below */}
+          <View style={{ flex: 1, gap: 10, paddingVertical: 2 }}>
+            
+            {/* Row 1: Meta (Left) and Checks (Right) */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              
+              {/* Streak and XP */}
+              <View style={styles.habitMeta}>
+                <View style={styles.trackMetaRow}>
+                  <View style={styles.streakPill}>
+                    <Flame size={12} color={habit.streak >= 3 ? '#F97316' : C.textFnt} strokeWidth={2} fill={habit.streak >= 3 ? '#F97316' : 'transparent'} />
+                    <Text style={[styles.streakText, { color: habit.streak >= 3 ? '#F97316' : C.textMut, fontSize: 12 }]}>{habit.streak}</Text>
+                  </View>
+                  <Text style={[styles.xpMini, { color: C.textMut, fontSize: 12 }]}>
+                    {computeHabitTotalXP(habit.checkedDates || [])} XP
+                  </Text>
                 </View>
-                <Text style={[styles.xpMini, { color: C.textMut }]}>+{habit.xpPerDay} XP</Text>
+              </View>
+
+              {/* Checks */}
+              <View style={styles.checkTrackRow}>
+                {DAYS.map((_, i) => (
+                  i === 6 ? (
+                    <Pressable
+                      key={i}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleCheckPress();
+                      }}
+                      style={styles.checkSlot}
+                    >
+                      {habit.week[i]
+                        ? <Check size={20} color={C.text} strokeWidth={3} />
+                        : <View style={[styles.uncheckedCircle, { backgroundColor: C.surface, borderColor: C.borderMid }]} />}
+                    </Pressable>
+                  ) : (
+                    <View key={i} style={styles.checkSlot}>
+                      {habit.week[i]
+                        ? <Check size={18} color={C.text} strokeWidth={3} />
+                        : <View style={[styles.uncheckedCircle, { backgroundColor: C.surface, borderColor: C.borderMid }]} />}
+                    </View>
+                  )
+                ))}
               </View>
             </View>
-          </View>
 
-          {/* Right: checks + streak/xp */}
-          <View style={styles.rightRow}>
-            <View style={styles.checkTrackRow}>
-              {DAYS.map((_, i) => (
-                i === 6 ? (
-                  <Pressable
-                    key={i}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleCheckPress();
-                    }}
-                    style={styles.checkSlot}
-                  >
-                    {habit.week[i]
-                      ? <Check size={16} color={C.text} strokeWidth={3.3} />
-                      : <View style={[styles.uncheckedCircle, { backgroundColor: C.surface, borderColor: C.borderMid }]} />}
-                  </Pressable>
-                ) : (
-                  <View key={i} style={styles.checkSlot}>
-                    {habit.week[i]
-                      ? <Check size={15} color={C.text} strokeWidth={3.2} />
-                      : <View style={[styles.uncheckedCircle, { backgroundColor: C.surface, borderColor: C.borderMid }]} />}
-                  </View>
-                )
-              ))}
+            {/* Row 2: Title and Unit */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <Text style={[
+                styles.habitTitle,
+                { color: todayDone ? C.textMut : C.text, flex: 1 },
+              ]} numberOfLines={2}>
+                {habit.title}
+              </Text>
+              {!!habit.unit && (
+                <View style={{ backgroundColor: C.surface2, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 2 }}>
+                  <Text style={{ fontFamily: F.medium, fontSize: 11, color: C.textMut }}>{habit.unit}</Text>
+                </View>
+              )}
             </View>
           </View>
         </Animated.View>
@@ -155,8 +170,8 @@ export default function HabitsScreen() {
 
   const [addMode, setAddMode]         = useState(false);
   const [newHabitTitle, setNewHabitTitle] = useState('');
+  const [newHabitUnit, setNewHabitUnit]   = useState('');
   const [newHabitCat, setNewHabitCat] = useState<HabitCategory>('work');
-  const [newHabitXP, setNewHabitXP]   = useState(30);
   const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -169,12 +184,20 @@ export default function HabitsScreen() {
   });
   const addHabit = () => {
     if (!newHabitTitle.trim()) return;
-    store.addHabit({ title: newHabitTitle.trim(), category: newHabitCat, xpPerDay: newHabitXP });
-    setNewHabitTitle(''); setAddMode(false); Keyboard.dismiss();
+    store.addHabit({ 
+      title: newHabitTitle.trim(), 
+      category: newHabitCat, 
+      xpPerDay: 1,
+      unit: newHabitUnit.trim() || undefined
+    });
+    setNewHabitTitle(''); 
+    setNewHabitUnit('');
+    setAddMode(false); 
+    Keyboard.dismiss();
   };
 
+  const habitTotalXP  = habits.reduce((acc, h) => acc + computeHabitTotalXP(h.checkedDates || []), 0);
   const doneToday     = habits.filter(h => h.week[6]).length;
-  const totalXP       = habits.filter(h => h.week[6]).reduce((s, h) => s + h.xpPerDay, 0);
   const longestStreak = habits.length ? Math.max(...habits.map(h => h.streak)) : 0;
   const pct           = habits.length ? Math.round((doneToday / habits.length) * 100) : 0;
   const selectedHabit = selectedHabitId ? habits.find((h) => h.id === selectedHabitId) ?? null : null;
@@ -201,44 +224,6 @@ export default function HabitsScreen() {
             </Pressable>
           </View>
 
-          {/* Add form */}
-          {addMode && (
-            <Animated.View entering={FadeIn.duration(180)} style={{ gap: 10, marginTop: 8 }}>
-              <TextInput
-                style={{ height:42, borderRadius:10, borderWidth:1.5, paddingHorizontal:13, fontFamily:F.regular, fontSize:14, backgroundColor:C.surface, borderColor:C.borderFocus, color:C.text }}
-                placeholder="Habit name…"
-                placeholderTextColor={C.textMut}
-                value={newHabitTitle}
-                onChangeText={setNewHabitTitle}
-                autoFocus
-              />
-              <View style={{ flexDirection:'row', gap:6 }}>
-                {(['health','mind','work','social'] as HabitCategory[]).map(cat => {
-                  const active = cat === newHabitCat;
-                  const color  = C[CAT_META[cat].colorKey];
-                  return (
-                    <Pressable key={cat} onPress={() => setNewHabitCat(cat)}
-                      style={{ flex:1, paddingVertical:8, borderRadius:8, borderWidth:1, alignItems:'center',
-                               backgroundColor: active ? color+'18' : C.surface, borderColor: active ? color : C.border }}>
-                      <Text style={{ fontFamily:F.medium, fontSize:11, color: active ? color : C.textMut }}>{CAT_META[cat].label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={{ flexDirection:'row', gap:6 }}>
-                {[20,30,40,50].map(xp => (
-                  <Pressable key={xp} onPress={() => setNewHabitXP(xp)}
-                    style={{ flex:1, paddingVertical:8, borderRadius:8, borderWidth:1, alignItems:'center',
-                             backgroundColor: newHabitXP===xp ? C.blueDim : C.surface, borderColor: newHabitXP===xp ? C.blue : C.border }}>
-                    <Text style={{ fontFamily:F.medium, fontSize:12, color: newHabitXP===xp ? C.blue : C.textMut }}>+{xp}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Pressable style={{ backgroundColor:C.blue, borderRadius:10, paddingVertical:12, alignItems:'center' }} onPress={addHabit}>
-                <Text style={{ fontFamily:F.semiBold, fontSize:14, color:'#fff' }}>Add Habit</Text>
-              </Pressable>
-            </Animated.View>
-          )}
         </View>
 
         {/* Daily Progress */}
@@ -252,8 +237,8 @@ export default function HabitsScreen() {
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end', backgroundColor: C.void, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.border }}>
-                <Text style={{ fontFamily: F.mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.textMut, marginBottom: 2 }}>Earned</Text>
-                <Text style={{ fontFamily: F.bold, fontSize: 15, color: C.gold }}>+{totalXP} XP</Text>
+                <Text style={{ fontFamily: F.mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.textMut, marginBottom: 2 }}>Habit XP</Text>
+                <Text style={{ fontFamily: F.bold, fontSize: 15, color: C.gold }}>{habitTotalXP} XP</Text>
               </View>
             </View>
             <View style={{ height: 6, borderRadius: 3, backgroundColor: C.surface2, overflow: 'hidden' }}>
@@ -376,10 +361,10 @@ export default function HabitsScreen() {
                           disabled={cell.isFuture || !cell.dateKey}
                           style={styles.calendarCellInner}
                         >
-                          <View style={styles.todayBadge}>
-                            {cell.done ? (
-                              <Check size={11} color={C.text} strokeWidth={3.2} />
-                            ) : (
+                            <View style={styles.todayBadge}>
+                              {cell.done ? (
+                                <Check size={20} color={C.text} strokeWidth={3.2} />
+                              ) : (
                               <Text style={[styles.calendarDayNum, { color: cell.isFuture ? C.textFnt : C.text }]}>{cell.day}</Text>
                             )}
                           </View>
@@ -391,9 +376,9 @@ export default function HabitsScreen() {
               </View>
 
               <View style={styles.modalStatsRow}>
-                <Text style={[styles.modalStat, { color: C.textMut }]}>Count <Text style={[styles.modalStatStrong, { color: C.text }]}>{selectedHabit.week.filter(Boolean).length}</Text></Text>
+                <Text style={[styles.modalStat, { color: C.textMut }]}>Count <Text style={[styles.modalStatStrong, { color: C.text }]}>{selectedHabit.checkedDates.length}</Text></Text>
                 <Text style={[styles.modalStat, { color: C.textMut }]}>Streak <Text style={[styles.modalStatStrong, { color: C.text }]}>{selectedHabit.streak}</Text></Text>
-                <Text style={[styles.modalStat, { color: C.textMut }]}>XP <Text style={[styles.modalStatStrong, { color: C.text }]}>{selectedHabit.xpPerDay}</Text></Text>
+                <Text style={[styles.modalStat, { color: C.textMut }]}>XP <Text style={[styles.modalStatStrong, { color: C.text }]}>{computeHabitTotalXP(selectedHabit.checkedDates)}</Text></Text>
               </View>
 
               <Pressable
@@ -439,6 +424,78 @@ export default function HabitsScreen() {
           </SafeAreaView>
         )}
       </Modal>
+
+      <Modal visible={addMode} transparent={false} animationType="slide" onRequestClose={() => setAddMode(false)}>
+        <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <View
+              style={[
+                styles.modalTop,
+                {
+                  backgroundColor: `${C[CAT_META[newHabitCat].colorKey]}30`,
+                  paddingTop: Math.max(14, insets.top + 6),
+                  marginBottom: 16,
+                },
+              ]}
+            >
+              <View style={styles.modalTopTextWrap}>
+                <Text style={[styles.modalEyebrow, { color: C.textMut }]}>Create Protocol</Text>
+                <Text style={[styles.modalTitle, { color: C.text }]}>New Habit</Text>
+              </View>
+              <Pressable onPress={() => setAddMode(false)} style={[styles.modalCloseBtn, { backgroundColor: C.surface }]}>
+                <X size={28} color={C.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ gap: 24, paddingHorizontal: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                 <View style={{ flex: 2 }}>
+                   <Text style={{ fontFamily: F.medium, fontSize: 13, color: C.textMut, marginBottom: 8 }}>Action / Name</Text>
+                   <TextInput
+                     style={{ height: 52, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 16, fontFamily: F.regular, fontSize: 16, backgroundColor: C.void, borderColor: C.borderFocus, color: C.text }}
+                     placeholder="e.g. Meditate"
+                     placeholderTextColor={C.textMut}
+                     value={newHabitTitle}
+                     onChangeText={setNewHabitTitle}
+                     autoFocus
+                   />
+                 </View>
+                 <View style={{ flex: 1.2 }}>
+                   <Text style={{ fontFamily: F.medium, fontSize: 13, color: C.textMut, marginBottom: 8 }}>Target / Unit</Text>
+                   <TextInput
+                     style={{ height: 52, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 16, fontFamily: F.regular, fontSize: 16, backgroundColor: C.void, borderColor: C.borderFocus, color: C.text }}
+                     placeholder="10 mins"
+                     placeholderTextColor={C.textMut}
+                     value={newHabitUnit}
+                     onChangeText={setNewHabitUnit}
+                   />
+                 </View>
+              </View>
+
+              <View style={{ marginBottom: 12 }}>
+                 <Text style={{ fontFamily: F.medium, fontSize: 13, color: C.textMut, marginBottom: 8 }}>Category</Text>
+                 <View style={{ flexDirection: 'row', gap: 8 }}>
+                   {(['health','mind','work','social'] as HabitCategory[]).map(cat => {
+                     const active = cat === newHabitCat;
+                     const color  = C[CAT_META[cat].colorKey];
+                     return (
+                       <Pressable key={cat} onPress={() => setNewHabitCat(cat)}
+                         style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, alignItems: 'center',
+                                  backgroundColor: active ? color+'18' : C.void, borderColor: active ? color : C.border }}>
+                         <Text style={{ fontFamily: F.semiBold, fontSize: 12, color: active ? color : C.textMut }}>{CAT_META[cat].label}</Text>
+                       </Pressable>
+                     );
+                   })}
+                 </View>
+              </View>
+              
+              <Pressable style={{ backgroundColor: C.blue, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 12 }} onPress={addHabit}>
+                 <Text style={{ fontFamily: F.bold, fontSize: 16, color: '#fff' }}>Create Habit</Text>
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -482,8 +539,8 @@ const styles = StyleSheet.create({
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 0 },
   trackHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 8 },
   trackHeaderSpacer: { flex: 1 },
-  trackHeaderDays: { width: 190, flexDirection: 'row', justifyContent: 'space-between' },
-  trackHeaderDayCell: { width: 22, alignItems: 'center', gap: 1 },
+  trackHeaderDays: { width: 232, flexDirection: 'row', justifyContent: 'space-between' },
+  trackHeaderDayCell: { width: 28, alignItems: 'center', gap: 1 },
   trackHeaderDateNum: { fontFamily: F.semiBold, fontSize: 13, lineHeight: 15 },
   trackHeaderDayText: { textAlign: 'center', fontFamily: F.mono, fontSize: 8, letterSpacing: 0.2 },
   habitList: { marginTop: 10 },
@@ -498,8 +555,8 @@ const styles = StyleSheet.create({
   habitMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   rightRow: { alignItems: 'flex-end', gap: 4, marginLeft: 8 },
   checkTrackRow: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
-  checkSlot: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-  uncheckedCircle: { width: 8, height: 8, borderRadius: 4, borderWidth: 1 },
+  checkSlot: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  uncheckedCircle: { width: 14, height: 14, borderRadius: 7, borderWidth: 1.5 },
   trackMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   streakPill: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   streakText: { fontFamily: F.mono, fontSize: 11 },
@@ -531,14 +588,14 @@ const styles = StyleSheet.create({
   modalMonthRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4 },
   monthNavBtn: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   modalSectionDate: { fontFamily: F.medium, fontSize: 12 },
-  calendarCard: { borderRadius: 10, paddingVertical: 6, paddingHorizontal: 6, width: '62%', minWidth: 230, maxWidth: 290 },
-  calendarWeekHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  calendarWeekLabel: { width: '14.2%', textAlign: 'center', fontFamily: F.mono, fontSize: 7, letterSpacing: 0.3 },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calendarCell: { width: '14.2%', minHeight: 28, alignItems: 'center', justifyContent: 'center' },
+  calendarCard: { borderRadius: 16, paddingVertical: 16, paddingHorizontal: 16, width: '100%', maxWidth: 400 },
+  calendarWeekHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  calendarWeekLabel: { width: '14.2%', textAlign: 'center', fontFamily: F.mono, fontSize: 10, letterSpacing: 0.3 },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
+  calendarCell: { width: '14.2%', minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   calendarCellInner: { alignItems: 'center', justifyContent: 'center' },
-  todayBadge: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  calendarDayNum: { fontFamily: F.semiBold, fontSize: 12 },
+  todayBadge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  calendarDayNum: { fontFamily: F.semiBold, fontSize: 16 },
   modalStatsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   modalStat: { fontFamily: F.medium, fontSize: 13 },
   modalStatStrong: { fontFamily: F.bold, fontSize: 15 },

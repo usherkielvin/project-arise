@@ -13,7 +13,7 @@ import { LevelUpModal } from '../../src/components/LevelUpModal';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { useSystemStore, Quest, xpForLevel } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
-import { Check, ChevronRight, Flame } from 'lucide-react-native';
+import { Check, ChevronRight, Flame, BookOpen, PenLine } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 // ─── Pulsing dot ────────────────────────────────────────────────────────────────
@@ -344,27 +344,42 @@ export default function HomeScreen() {
 
         {/* Quick Journal */}
         <View style={styles.section}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={[styles.sectionEyebrow, { color: C.textMut }]}>Journal</Text>
-            <Pressable onPress={() => router.push('/(tabs)/journal')}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <Text style={[styles.sectionEyebrow, { color: C.textMut, marginBottom: 0 }]}>Journal</Text>
+            <Pressable onPress={() => router.push('/(tabs)/journal')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <BookOpen size={12} color={C.blue} />
               <Text style={{ fontFamily: F.medium, fontSize: 11, color: C.blue }}>Open Logs</Text>
             </Pressable>
           </View>
-          <View style={[styles.journalPanel, { backgroundColor: C.void, borderColor: C.border }]}>
-            <Pressable
-              style={({ pressed }) => [styles.journalPreview, { opacity: pressed ? 0.9 : 1 }]}
-              onPress={() => router.push({ pathname: '/(tabs)/journal', params: { openDate: todayStr } })}
-            >
-              <Text
-                style={[styles.journalInput, { color: todayJournal.trim().length ? C.text : C.textMut }]}
-                numberOfLines={6}
-              >
-                {todayJournal.trim().length
-                  ? todayJournal.trim()
-                  : 'No journal entry yet. Tap to open logs and write your first entry.'}
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.journalPanel,
+              { backgroundColor: C.void, borderColor: C.border, transform: [{ scale: pressed ? 0.98 : 1 }] }
+            ]}
+            onPress={() => router.push({ pathname: '/(tabs)/journal', params: { openDate: todayStr } })}
+          >
+            {todayJournal.trim().length ? (
+              <View style={styles.journalPreview}>
+                <Text style={[styles.journalInput, { color: C.text }]} numberOfLines={4}>
+                  {todayJournal.trim()}
+                </Text>
+                <View style={[styles.journalFooter, { borderTopColor: C.border, justifyContent: 'flex-end' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontFamily: F.medium, fontSize: 11, color: C.textMut }}>Edit</Text>
+                    <ChevronRight size={14} color={C.textMut} />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.journalEmpty}>
+                <View style={[styles.journalIconBg, { backgroundColor: C.blueDim, borderColor: C.blueBorder }]}>
+                  <PenLine size={20} color={C.blue} />
+                </View>
+                <Text style={[styles.journalEmptyTitle, { color: C.text }]}>Write today's entry</Text>
+                <Text style={[styles.journalEmptyDesc, { color: C.textMut }]}>Log your thoughts, achievements, and reflections.</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
 
         <View style={{ height: 40 }} />
@@ -438,18 +453,55 @@ const styles = StyleSheet.create({
   journalPanel: {
     borderRadius: 16,
     borderWidth: 1,
-    marginTop: 8,
+    overflow: 'hidden',
+  },
+  journalPreview: {
+    padding: 16,
+    paddingBottom: 0,
   },
   journalInput: {
-    padding: 16,
     fontFamily: F.regular,
     fontSize: 14,
     lineHeight: 22,
-    minHeight: 80,
-    maxHeight: 170,
+    minHeight: 60,
   },
-  journalPreview: {
-    borderRadius: 12,
-    margin: 6,
+  journalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 12,
+    borderTopWidth: 1,
+  },
+  journalWordCount: {
+    fontFamily: F.mono,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  journalEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+  },
+  journalIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  journalEmptyTitle: {
+    fontFamily: F.semiBold,
+    fontSize: 16,
+    marginBottom: 6,
+  },
+  journalEmptyDesc: {
+    fontFamily: F.regular,
+    fontSize: 13,
+    textAlign: 'center',
   },
 });

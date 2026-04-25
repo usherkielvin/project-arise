@@ -23,6 +23,7 @@ export interface Quest {
 export interface Habit {
   id: number; title: string; category: HabitCategory;
   streak: number; bestStreak: number; xpPerDay: number; week: boolean[]; checkedDates: string[];
+  unit?: string;
 }
 
 export interface JournalEntry {
@@ -82,7 +83,7 @@ interface SystemState {
   uncheckQuest: (id: number) => void;
   addQuestProgress: (id: number, amount: number) => { leveledUp: boolean; newLevel: number };
 
-  addHabit:     (h: Pick<Habit, 'title' | 'category' | 'xpPerDay'>) => void;
+  addHabit:     (h: Pick<Habit, 'title' | 'category' | 'xpPerDay' | 'unit'>) => void;
   deleteHabit:  (id: number) => void;
   toggleHabit:  (id: number) => { leveledUp: boolean; newLevel: number };
   uncheckHabit: (id: number) => void;
@@ -144,6 +145,32 @@ function computeCurrentStreakFromCheckedDates(checkedDates: string[], todayKey: 
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+export function computeHabitTotalXP(checkedDates: string[]) {
+  if (!checkedDates || checkedDates.length === 0) return 0;
+  
+  const sorted = [...checkedDates].sort();
+  let totalXP = sorted.length; // 1 XP per checked date
+  
+  let currentStreak = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1]);
+    const curr = new Date(sorted[i]);
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+      currentStreak++;
+      if (currentStreak === 3) totalXP += 3;
+      else if (currentStreak === 5) totalXP += 5;
+      else if (currentStreak === 10) totalXP += 10;
+      else if (currentStreak === 30) totalXP += 30;
+    } else {
+      currentStreak = 1;
+    }
+  }
+  
+  return totalXP;
 }
 
 export const useSystemStore = create<SystemState>()(
@@ -319,17 +346,22 @@ export const useSystemStore = create<SystemState>()(
           );
           if (checkedSet.has(todayKey)) return state;
 
-          const newXP = state.totalXP + habit.xpPerDay;
-          const { newLevel, leveledUp } = computeLevelUp(state.level, newXP);
-
-          const newStatPoints = { ...state.statPoints };
-          const sk = HABIT_STAT_MAP[habit.category];
-          newStatPoints[sk] += habit.xpPerDay;
+          const oldHabitXP = computeHabitTotalXP([...checkedSet].sort());
 
           checkedSet.add(todayKey);
           const checkedDates = [...checkedSet].sort();
           const newWeek = buildWeekFromCheckedDates(checkedDates, todayKey);
           const nextStreak = computeCurrentStreakFromCheckedDates(checkedDates, todayKey);
+
+          const newHabitXP = computeHabitTotalXP(checkedDates);
+          const xpDiff = newHabitXP - oldHabitXP;
+
+          const newTotalXP = state.totalXP + xpDiff;
+          const { newLevel, leveledUp } = computeLevelUp(state.level, newTotalXP);
+
+          const newStatPoints = { ...state.statPoints };
+          const sk = HABIT_STAT_MAP[habit.category];
+          newStatPoints[sk] += xpDiff;
 
           result = { leveledUp, newLevel };
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -341,8 +373,9 @@ export const useSystemStore = create<SystemState>()(
               checkedDates,
               streak: nextStreak,
               bestStreak: Math.max(h.bestStreak, nextStreak),
+              xpPerDay: 1,
             } : h),
-            totalXP: newXP,
+            totalXP: newTotalXP,
             level: newLevel,
             statPoints: newStatPoints,
           };
@@ -362,17 +395,22 @@ export const useSystemStore = create<SystemState>()(
         );
         if (!checkedSet.has(todayKey)) return state;
 
-        const newXP = Math.max(0, state.totalXP - habit.xpPerDay);
-        const { newLevel } = computeLevelUp(1, newXP);
-
-        const newStatPoints = { ...state.statPoints };
-        const sk = HABIT_STAT_MAP[habit.category];
-        newStatPoints[sk] = Math.max(0, newStatPoints[sk] - habit.xpPerDay);
+        const oldHabitXP = computeHabitTotalXP([...checkedSet].sort());
 
         checkedSet.delete(todayKey);
         const checkedDates = [...checkedSet].sort();
         const newWeek = buildWeekFromCheckedDates(checkedDates, todayKey);
         const nextStreak = computeCurrentStreakFromCheckedDates(checkedDates, todayKey);
+
+        const newHabitXP = computeHabitTotalXP(checkedDates);
+        const xpDiff = newHabitXP - oldHabitXP; // will be negative
+
+        const newTotalXP = Math.max(0, state.totalXP + xpDiff);
+        const { newLevel } = computeLevelUp(1, newTotalXP);
+
+        const newStatPoints = { ...state.statPoints };
+        const sk = HABIT_STAT_MAP[habit.category];
+        newStatPoints[sk] = Math.max(0, newStatPoints[sk] + xpDiff);
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -382,8 +420,9 @@ export const useSystemStore = create<SystemState>()(
             week: newWeek,
             checkedDates,
             streak: nextStreak,
+            xpPerDay: 1,
           } : h),
-          totalXP: newXP,
+          totalXP: newTotalXP,
           level: newLevel,
           statPoints: newStatPoints,
         };
@@ -405,13 +444,36 @@ export const useSystemStore = create<SystemState>()(
             : checkedDatesFromWeek(habit.week, todayKey)
         );
 
+        const oldHabitXP = computeHabitTotalXP([...checkedSet].sort());
+
         const key = localDateKey(target);
-        if (checkedSet.has(key)) checkedSet.delete(key);
-        else checkedSet.add(key);
+        const isChecking = !checkedSet.has(key);
+
+        if (isChecking) {
+          checkedSet.add(key);
+        } else {
+          checkedSet.delete(key);
+        }
 
         const checkedDates = [...checkedSet].sort();
         const week = buildWeekFromCheckedDates(checkedDates, todayKey);
         const streak = computeCurrentStreakFromCheckedDates(checkedDates, todayKey);
+
+        const newHabitXP = computeHabitTotalXP(checkedDates);
+        const xpDiff = newHabitXP - oldHabitXP;
+
+        const newTotalXP = Math.max(0, state.totalXP + xpDiff);
+        const { newLevel } = computeLevelUp(state.level, newTotalXP);
+
+        const newStatPoints = { ...state.statPoints };
+        const sk = HABIT_STAT_MAP[habit.category];
+        newStatPoints[sk] = Math.max(0, newStatPoints[sk] + xpDiff);
+
+        if (isChecking) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
 
         return {
           habits: state.habits.map((h) => h.id === id ? {
@@ -421,6 +483,9 @@ export const useSystemStore = create<SystemState>()(
             streak,
             bestStreak: Math.max(h.bestStreak, streak),
           } : h),
+          totalXP: newTotalXP,
+          level: newLevel,
+          statPoints: newStatPoints,
         };
       }),
 
