@@ -117,6 +117,12 @@ function computeLevelUp(currentLevel: number, newTotalXP: number) {
   return { newLevel: lvl, leveledUp: leveled };
 }
 
+let idSequence = 0;
+function nextNumericId() {
+  idSequence = (idSequence + 1) % 1000;
+  return Date.now() * 1000 + idSequence;
+}
+
 function dateKeyDaysAgo(baseDateKey: string, daysAgo: number) {
   const d = new Date(baseDateKey);
   d.setDate(d.getDate() - daysAgo);
@@ -195,7 +201,7 @@ export const useSystemStore = create<SystemState>()(
       addQuest: (questData) => set((state) => ({
         quests: [...state.quests, {
           ...questData,
-          id: Date.now(),
+          id: nextNumericId(),
           completed: false,
           dateCreated: new Date().toISOString(),
           progress: questData.isProgressBased ? 0 : undefined,
@@ -320,7 +326,7 @@ export const useSystemStore = create<SystemState>()(
       addHabit: (habitData) => set((state) => ({
         habits: [...state.habits, {
           ...habitData,
-          id: Date.now(),
+          id: nextNumericId(),
           streak: 0,
           bestStreak: 0,
           week: [false, false, false, false, false, false, false],
@@ -526,7 +532,7 @@ export const useSystemStore = create<SystemState>()(
         return {
           tradeLogs: [
             {
-              id: Date.now(),
+              id: nextNumericId(),
               timestamp: new Date().toISOString(),
               ...payload,
               pips,

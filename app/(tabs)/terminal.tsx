@@ -27,43 +27,60 @@ export default function TerminalScreen() {
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [livePercent, setLivePercent] = useState<number | null>(null);
   const [fetching, setFetching] = useState(false);
+  const [livePriceError, setLivePriceError] = useState<string | null>(null);
+
+  const parseMarketMeta = (data: any) => {
+    const meta = data?.chart?.result?.[0]?.meta;
+    const price = meta?.regularMarketPrice;
+    const prevClose = meta?.previousClose;
+    if (!Number.isFinite(price)) return null;
+    return {
+      price: Number(price),
+      prevClose: Number.isFinite(prevClose) ? Number(prevClose) : null,
+    };
+  };
 
   const handleFetchLivePrice = async (sym: string) => {
     setFetching(true);
     setLivePrice(null);
     setLivePercent(null);
+    setLivePriceError(null);
     try {
       const upper = sym.trim().toUpperCase();
-      let price = 0;
-      let prevClose = 0;
+      let ticker = '';
       if (upper === 'XAUUSD' || upper === 'GOLD') {
-        const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/GC=F');
-        const data = await res.json();
-        price = data.chart.result[0].meta.regularMarketPrice;
-        prevClose = data.chart.result[0].meta.previousClose;
+        ticker = 'GC=F';
       } else if (upper.includes('USD') && (upper.startsWith('BTC') || upper.startsWith('ETH') || upper.startsWith('SOL'))) {
-        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${upper.replace('USD', '-USD')}`);
-        const data = await res.json();
-        price = data.chart.result[0].meta.regularMarketPrice;
-        prevClose = data.chart.result[0].meta.previousClose;
+        ticker = upper.replace('USD', '-USD');
       } else if (upper.includes('USD')) {
-        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${upper}=X`);
-        const data = await res.json();
-        price = data.chart.result[0].meta.regularMarketPrice;
-        prevClose = data.chart.result[0].meta.previousClose;
+        ticker = `${upper}=X`;
+      } else {
+        setLivePriceError('Unsupported symbol. Use XAUUSD, BTCUSD, ETHUSD, SOLUSD, or a forex USD pair.');
+        return;
       }
-      
-      if (price) {
-        setLivePrice(price);
-        setEntry((prev) => prev ? prev : String(price));
-        if (prevClose) {
-          const diff = price - prevClose;
-          const pct = (diff / prevClose) * 100;
-          setLivePercent(Number(pct.toFixed(2)));
-        }
+
+      const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
+      if (!res.ok) {
+        setLivePriceError('Unable to fetch live price right now. Please try again.');
+        return;
+      }
+      const data = await res.json();
+      const parsed = parseMarketMeta(data);
+      if (!parsed) {
+        setLivePriceError(`No live market data available for ${upper}.`);
+        return;
+      }
+
+      setLivePrice(parsed.price);
+      setEntry((prev) => prev ? prev : String(parsed.price));
+      if (parsed.prevClose && parsed.prevClose > 0) {
+        const diff = parsed.price - parsed.prevClose;
+        const pct = (diff / parsed.prevClose) * 100;
+        setLivePercent(Number(pct.toFixed(2)));
       }
     } catch (e) {
       console.log('Error fetching live price:', e);
+      setLivePriceError('Price fetch failed. Check connection and try again.');
     } finally {
       setFetching(false);
     }
@@ -133,6 +150,11 @@ export default function TerminalScreen() {
               </View>
             )}
           </View>
+          {livePriceError && (
+            <Text style={{ color: C.penalty, fontFamily: F.medium, fontSize: 11 }}>
+              {livePriceError}
+            </Text>
+          )}
           <View style={styles.directionRow}>
             <Pressable 
               style={[styles.directionBtn, direction === 'LONG' ? { backgroundColor: C.success, borderColor: C.success } : { borderColor: C.border }]}

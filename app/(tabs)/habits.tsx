@@ -165,8 +165,13 @@ function HabitRow({ habit, onComplete, onUncheck, onOpen, onDelete, index }: {
 export default function HabitsScreen() {
   const { colors: C } = useTheme();
   const insets = useSafeAreaInsets();
-  const store  = useSystemStore();
-  const habits = store.habits;
+  const habits = useSystemStore((s) => s.habits);
+  const addHabitToStore = useSystemStore((s) => s.addHabit);
+  const toggleHabit = useSystemStore((s) => s.toggleHabit);
+  const uncheckHabit = useSystemStore((s) => s.uncheckHabit);
+  const deleteHabit = useSystemStore((s) => s.deleteHabit);
+  const updateHabitTitle = useSystemStore((s) => s.updateHabitTitle);
+  const toggleHabitDate = useSystemStore((s) => s.toggleHabitDate);
 
   const [addMode, setAddMode]         = useState(false);
   const [newHabitTitle, setNewHabitTitle] = useState('');
@@ -184,7 +189,7 @@ export default function HabitsScreen() {
   });
   const addHabit = () => {
     if (!newHabitTitle.trim()) return;
-    store.addHabit({ 
+    addHabitToStore({ 
       title: newHabitTitle.trim(), 
       category: newHabitCat, 
       xpPerDay: 1,
@@ -273,13 +278,13 @@ export default function HabitsScreen() {
               habits.map((h, i) => (
                 <HabitRow
                   key={h.id} habit={h} index={i}
-                  onComplete={id => store.toggleHabit(id)}
-                  onUncheck={id => store.uncheckHabit(id)}
+                  onComplete={id => toggleHabit(id)}
+                  onUncheck={id => uncheckHabit(id)}
                   onOpen={(id) => {
                     setSelectedHabitId(id);
                     setCalendarMonthOffset(0);
                   }}
-                  onDelete={id => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); store.deleteHabit(id); }}
+                  onDelete={id => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); deleteHabit(id); }}
                 />
               ))
             )}
@@ -291,7 +296,14 @@ export default function HabitsScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      <Modal visible={!!selectedHabit} transparent={false} animationType="slide" onRequestClose={() => setSelectedHabitId(null)}>
+      <Modal
+        visible={!!selectedHabit}
+        transparent={false}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setSelectedHabitId(null)}
+      >
         {selectedHabit && (
           <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
             <View
@@ -311,7 +323,7 @@ export default function HabitsScreen() {
                   onEndEditing={(e) => {
                     const t = e.nativeEvent.text.trim();
                     if (t && t !== selectedHabit.title) {
-                      store.updateHabitTitle(selectedHabit.id, t);
+                      updateHabitTitle(selectedHabit.id, t);
                     }
                   }}
                   returnKeyType="done"
@@ -356,7 +368,7 @@ export default function HabitsScreen() {
                       {cell.day ? (
                         <Pressable
                           onPress={() => {
-                            if (!cell.isFuture && cell.dateKey) store.toggleHabitDate(selectedHabit.id, cell.dateKey);
+                            if (!cell.isFuture && cell.dateKey) toggleHabitDate(selectedHabit.id, cell.dateKey);
                           }}
                           disabled={cell.isFuture || !cell.dateKey}
                           style={styles.calendarCellInner}
@@ -410,7 +422,7 @@ export default function HabitsScreen() {
                       onPress={() => {
                         if (!selectedHabit) return;
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        store.deleteHabit(selectedHabit.id);
+                        deleteHabit(selectedHabit.id);
                         setConfirmDeleteOpen(false);
                         setSelectedHabitId(null);
                       }}
@@ -425,7 +437,14 @@ export default function HabitsScreen() {
         )}
       </Modal>
 
-      <Modal visible={addMode} transparent={false} animationType="slide" onRequestClose={() => setAddMode(false)}>
+      <Modal
+        visible={addMode}
+        transparent={false}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setAddMode(false)}
+      >
         <SafeAreaView edges={['bottom']} style={[styles.fullModal, { backgroundColor: C.surface }]}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
             <View

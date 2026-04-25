@@ -318,9 +318,17 @@ function FilterPicker({
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function QuestsScreen() {
   const { colors: C } = useTheme();
-  const store = useSystemStore();
-  const quests = store.quests;
-  const CATEGORIES = store.categories;  // dynamic from store
+  const quests = useSystemStore((s) => s.quests);
+  const categories = useSystemStore((s) => s.categories);
+  const toggleQuest = useSystemStore((s) => s.toggleQuest);
+  const uncheckQuest = useSystemStore((s) => s.uncheckQuest);
+  const addQuestProgress = useSystemStore((s) => s.addQuestProgress);
+  const addQuest = useSystemStore((s) => s.addQuest);
+  const updateQuest = useSystemStore((s) => s.updateQuest);
+  const deleteQuest = useSystemStore((s) => s.deleteQuest);
+  const addCategory = useSystemStore((s) => s.addCategory);
+  const editCategory = useSystemStore((s) => s.editCategory);
+  const deleteCategory = useSystemStore((s) => s.deleteCategory);
 
   const [filter, setFilter]       = useState<FilterKey>('all');
   const [showFilter, setShowFilter] = useState(false);
@@ -339,9 +347,9 @@ export default function QuestsScreen() {
   const [addCatMode, setAddCatMode] = useState(false);
 
   const toggle = useCallback((id: number) => {
-    const result = store.toggleQuest(id);
+    const result = toggleQuest(id);
     if (result?.leveledUp) { setLvlUpNum(result.newLevel); setShowLvlUp(true); }
-  }, [store]);
+  }, [toggleQuest]);
 
   const submitQuest = () => {
     if (!newTitle.trim()) return;
@@ -349,14 +357,14 @@ export default function QuestsScreen() {
     const stat = CATEGORY_STAT[cat] ?? 'INT';
 
     if (editingQuest) {
-      store.updateQuest(editingQuest.id, {
+      updateQuest(editingQuest.id, {
         title: newTitle.trim(),
         description: newDesc.trim(),
         category: cat, stat, xp: newXP, rank: newRank,
         isProgressBased: isProgress
       });
     } else {
-      store.addQuest({ 
+      addQuest({ 
         title: newTitle.trim(), 
         description: newDesc.trim(), 
         category: cat, stat, xp: newXP, rank: newRank,
@@ -495,18 +503,18 @@ export default function QuestsScreen() {
 
               {manageCatMode ? (
                 <View style={{ gap: 8 }}>
-                  {store.categories.map(cat => (
+                  {categories.map(cat => (
                     <View key={cat} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <TextInput 
                         style={[styles.modalInput, { flex: 1, height: 36, backgroundColor: C.void, borderColor: C.borderFocus, color: C.text }]} 
                         defaultValue={cat}
                         onEndEditing={(e) => {
                           const t = e.nativeEvent.text.trim();
-                          if (t && t !== cat) store.editCategory(cat, t);
+                          if (t && t !== cat) editCategory(cat, t);
                         }}
                       />
                       <Pressable 
-                        onPress={() => store.deleteCategory(cat)}
+                        onPress={() => deleteCategory(cat)}
                         style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', borderRadius: 10 }}
                       >
                         <Trash2 size={16} color="#EF4444" />
@@ -521,7 +529,7 @@ export default function QuestsScreen() {
                       autoFocus
                       onEndEditing={(e) => {
                         const t = e.nativeEvent.text.trim();
-                        if (t) store.addCategory(t);
+                        if (t) addCategory(t);
                         setAddCatMode(false);
                       }}
                     />
@@ -536,7 +544,7 @@ export default function QuestsScreen() {
                 </View>
               ) : (
                 <View style={styles.modalPickerRow}>
-                  {CATEGORIES.map(cat => {
+                  {categories.map(cat => {
                     const active = newCat === cat;
                     return (
                       <Pressable key={cat} onPress={() => setNewCat(cat)}
@@ -668,11 +676,11 @@ export default function QuestsScreen() {
                 <View style={[styles.groupList, { borderTopColor: C.border }]}>
                   {pending.map((q, i) => (
                     <QuestRow
-                      key={q.id} quest={q} onToggle={toggle} onUncheck={store.uncheckQuest} index={i}
+                      key={q.id} quest={q} onToggle={toggle} onUncheck={uncheckQuest} index={i}
                       onEdit={openEditModal}
-                      onDelete={store.deleteQuest}
+                      onDelete={deleteQuest}
                       onAddProgress={(id, amt) => {
-                        const result = store.addQuestProgress(id, amt);
+                        const result = addQuestProgress(id, amt);
                         if (result?.leveledUp) { setLvlUpNum(result.newLevel); setShowLvlUp(true); }
                       }}
                       isDeleting={deletingId === q.id}
@@ -699,11 +707,11 @@ export default function QuestsScreen() {
                 <View style={[styles.groupList, { borderTopColor: C.border }]}>
                   {inProgress.map((q, i) => (
                     <QuestRow
-                      key={q.id} quest={q} onToggle={toggle} onUncheck={store.uncheckQuest} index={i}
+                      key={q.id} quest={q} onToggle={toggle} onUncheck={uncheckQuest} index={i}
                       onEdit={openEditModal}
-                      onDelete={store.deleteQuest}
+                      onDelete={deleteQuest}
                       onAddProgress={(id, amt) => {
-                        const result = store.addQuestProgress(id, amt);
+                        const result = addQuestProgress(id, amt);
                         if (result?.leveledUp) { setLvlUpNum(result.newLevel); setShowLvlUp(true); }
                       }}
                       isDeleting={deletingId === q.id}
@@ -730,9 +738,9 @@ export default function QuestsScreen() {
                 <View style={[styles.groupList, { borderTopColor: C.border }]}>
                   {completed.map((q, i) => (
                     <QuestRow
-                      key={q.id} quest={q} onToggle={toggle} onUncheck={store.uncheckQuest} index={i}
+                      key={q.id} quest={q} onToggle={toggle} onUncheck={uncheckQuest} index={i}
                       onEdit={openEditModal}
-                      onDelete={store.deleteQuest}
+                      onDelete={deleteQuest}
                       onAddProgress={() => {}}
                       isDeleting={false}
                       onLongPress={() => {}}

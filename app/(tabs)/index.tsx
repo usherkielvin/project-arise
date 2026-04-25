@@ -150,17 +150,24 @@ function PriorityCard({
 
 export default function HomeScreen() {
   const { colors: C } = useTheme();
-  const store = useSystemStore();
+  const quests = useSystemStore((s) => s.quests);
+  const habits = useSystemStore((s) => s.habits);
+  const journals = useSystemStore((s) => s.journals);
+  const level = useSystemStore((s) => s.level);
+  const totalXP = useSystemStore((s) => s.totalXP);
+  const toggleQuest = useSystemStore((s) => s.toggleQuest);
+  const uncheckQuest = useSystemStore((s) => s.uncheckQuest);
+  const addQuestProgress = useSystemStore((s) => s.addQuestProgress);
   const [showLvlUp, setShowLvlUp] = useState(false);
   const [modalLevel, setModalLevel] = useState(1);
   const router = useRouter();
 
   // Get active quests (top 3 pending)
-  const openQuests = store.quests.filter(q => !q.completed);
+  const openQuests = quests.filter(q => !q.completed);
   const activeQuests = openQuests.slice(0, 3);
   
   // Also get some completed ones if we want to show them, or just use all for the progress math
-  const todayDailies = store.quests; // Or filter by date if needed. Let's use all for now
+  const todayDailies = quests; // Or filter by date if needed. Let's use all for now
   const done = todayDailies.filter(q => q.completed).length;
   
   let earnedQuestScore = 0;
@@ -174,18 +181,18 @@ export default function HomeScreen() {
 
   // Journal for today
   const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
-  const todayJournal = store.journals.find(j => j.date === todayStr)?.content || '';
+  const todayJournal = journals.find(j => j.date === todayStr)?.content || '';
 
-  const nextXP = xpForLevel(store.level + 1);
-  const curXP = xpForLevel(store.level);
-  const progress = Math.min(((store.totalXP - curXP) / (nextXP - curXP)) * 100, 100);
+  const nextXP = xpForLevel(level + 1);
+  const curXP = xpForLevel(level);
+  const progress = Math.min(((totalXP - curXP) / (nextXP - curXP)) * 100, 100);
 
   const handleToggleQuest = (id: number) => {
-    const q = store.quests.find(x => x.id === id);
+    const q = quests.find(x => x.id === id);
     if (q?.completed) {
-      store.uncheckQuest(id);
+      uncheckQuest(id);
     } else {
-      const result = store.toggleQuest(id);
+      const result = toggleQuest(id);
       if (result && result.leveledUp) {
         setModalLevel(result.newLevel);
         setShowLvlUp(true);
@@ -194,20 +201,20 @@ export default function HomeScreen() {
   };
 
   const handleAddProgress = (id: number, amt: number) => {
-    const result = store.addQuestProgress(id, amt);
+    const result = addQuestProgress(id, amt);
     if (result && result.leveledUp) {
       setModalLevel(result.newLevel);
       setShowLvlUp(true);
     }
   };
 
-  const HABIT_SNAP = store.habits.slice(0, 2).map(h => ({
+  const HABIT_SNAP = habits.slice(0, 2).map(h => ({
     label: h.title,
     streak: h.streak,
     done: h.week[6]
   }));
-  const habitsDoneToday = store.habits.filter((h) => h.week[6]).length;
-  const totalHabits = store.habits.length;
+  const habitsDoneToday = habits.filter((h) => h.week[6]).length;
+  const totalHabits = habits.length;
   const habitPct = totalHabits > 0 ? Math.round((habitsDoneToday / totalHabits) * 100) : 0;
 
   return (
@@ -230,7 +237,7 @@ export default function HomeScreen() {
         {/* Level strip */}
         <View style={styles.levelStrip}>
           <View style={styles.levelStripRow}>
-            <Text style={[styles.levelStripLabel, { color: C.text }]}>Level {String(store.level).padStart(2, '0')}</Text>
+            <Text style={[styles.levelStripLabel, { color: C.text }]}>Level {String(level).padStart(2, '0')}</Text>
             <Text style={[styles.levelStripPct, { color: C.textMut }]}>{Math.round(progress)}% to next</Text>
           </View>
           <View style={[styles.levelBar, { backgroundColor: C.surface2 }]}>
@@ -375,7 +382,7 @@ export default function HomeScreen() {
                 <View style={[styles.journalIconBg, { backgroundColor: C.blueDim, borderColor: C.blueBorder }]}>
                   <PenLine size={20} color={C.blue} />
                 </View>
-                <Text style={[styles.journalEmptyTitle, { color: C.text }]}>Write today's entry</Text>
+                <Text style={[styles.journalEmptyTitle, { color: C.text }]}>Write today&apos;s entry</Text>
                 <Text style={[styles.journalEmptyDesc, { color: C.textMut }]}>Log your thoughts, achievements, and reflections.</Text>
               </View>
             )}
