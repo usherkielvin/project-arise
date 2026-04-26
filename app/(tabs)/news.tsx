@@ -6,11 +6,11 @@ import { F } from '../../src/theme/fonts';
 import { protocolAccent } from '../../src/theme/colors';
 import { useSystemStore } from '../../src/store/useSystemStore';
 
-const EVENTS = [
-  { id: 'nfp', title: 'NFP Release', date: 'Fri 20:30' },
-  { id: 'cpi', title: 'US CPI', date: 'Tue 20:30' },
-  { id: 'retail', title: 'Retail Sales', date: 'Thu 20:30' },
-  { id: 'fomc', title: 'FOMC Statement', date: 'Wed 02:00' },
+const DEFAULT_EVENTS = [
+  { id: 'nfp', title: 'NFP Release', date: 'Fri 20:30', impact: 'High' },
+  { id: 'cpi', title: 'US CPI', date: 'Tue 20:30', impact: 'High' },
+  { id: 'retail', title: 'Retail Sales', date: 'Thu 20:30', impact: 'Medium' },
+  { id: 'fomc', title: 'FOMC Statement', date: 'Wed 02:00', impact: 'High' },
 ];
 
 export default function NewsScreen() {
@@ -18,6 +18,53 @@ export default function NewsScreen() {
   const accent = protocolAccent('FINANCE', isDark, C.blue);
   const preparedNewsEvents = useSystemStore((s) => s.preparedNewsEvents);
   const togglePreparedNewsEvent = useSystemStore((s) => s.togglePreparedNewsEvent);
+  
+  const [events, setEvents] = React.useState<{id: string, title: string, date: string, impact?: string}[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.xml');
+        const text = await res.text();
+        const parsed = [];
+        const eventRegex = /<event>([\s\S]*?)<\/event>/g;
+        let match;
+        while ((match = eventRegex.exec(text)) !== null) {
+          const eventText = match[1];
+          const title = eventText.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] || eventText.match(/<title>(.*?)<\/title>/)?.[1];
+          const country = eventText.match(/<country>(.*?)<\/country>/)?.[1];
+          const date = eventText.match(/<date><!\[CDATA\[(.*?)\]\]><\/date>/)?.[1] || eventText.match(/<date>(.*?)<\/date>/)?.[1];
+          const time = eventText.match(/<time><!\[CDATA\[(.*?)\]\]><\/time>/)?.[1] || eventText.match(/<time>(.*?)<\/time>/)?.[1];
+          const impact = eventText.match(/<impact><!\[CDATA\[(.*?)\]\]><\/impact>/)?.[1] || eventText.match(/<impact>(.*?)<\/impact>/)?.[1];
+          
+          if (title && date && country === 'USD' && (impact === 'High' || impact === 'Medium')) {
+            const d = new Date(date);
+            const formattedDate = isNaN(d.getTime()) 
+              ? date 
+              : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            
+            parsed.push({
+              id: `${title}-${date}-${time}`.replace(/\s+/g, '-'),
+              title: title,
+              date: `${formattedDate} ${time !== 'All Day' ? time : ''}`.trim(),
+              impact: impact
+            });
+          }
+        }
+        if (parsed.length > 0) {
+          setEvents(parsed);
+        } else {
+          setEvents(DEFAULT_EVENTS);
+        }
+      } catch (err) {
+        setEvents(DEFAULT_EVENTS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNews();
+  }, []);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
@@ -28,14 +75,30 @@ export default function NewsScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: C.void, borderColor: C.border }]}>
-          {EVENTS.map((event, i) => {
-            const prepared = preparedNewsEvents.find((e) => e.id === event.id)?.prepared ?? false;
-            return (
-              <View key={event.id} style={[styles.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.border }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.rowTitle, { color: C.text }]}>{event.title}</Text>
-                  <Text style={[styles.rowSub, { color: C.textMut }]}>{event.date}</Text>
-                </View>
+          {loading ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: C.textMut, fontFamily: F.medium }}>Loading latest news...</Text>
+            </View>
+          ) : events.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: C.textMut, fontFamily: F.medium }}>No major news events this week.</Text>
+            </View>
+          ) : (
+            events.map((event, i) => {
+              const prepared = preparedNewsEvents.find((e) => e.id === event.id)?.prepared ?? false;
+              return (
+                <View key={event.id} style={[styles.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.rowTitle, { color: C.text }]}>{event.title}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <Text style={[styles.rowSub, { color: C.textMut, marginTop: 0 }]}>{event.date}</Text>
+                      {event.impact && (
+                        <View style={{ backgroundColor: event.impact === 'High' ? C.penalty + '30' : C.warning + '30', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 10, fontFamily: F.medium, color: event.impact === 'High' ? C.penalty : C.warning }}>{event.impact}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
                 <Pressable
                   style={[styles.btn, { backgroundColor: prepared ? C.surface2 : accent }]}
                   onPress={() => togglePreparedNewsEvent({ id: event.id, title: event.title, date: event.date })}
@@ -44,9 +107,10 @@ export default function NewsScreen() {
                     {prepared ? 'Prepared' : 'Mark Prepared'}
                   </Text>
                 </Pressable>
-              </View>
-            );
-          })}
+                </View>
+              );
+            })
+          )}
         </View>
 
         <View style={{ height: 120 }} />
