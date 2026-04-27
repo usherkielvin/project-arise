@@ -2,7 +2,7 @@
  * Quests Screen — Polished quest journal with category filters, counts,
  * sort options, grouped sections, and full dark-mode support.
  */
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   ScrollView, View, Text, Pressable, TextInput,
   StyleSheet, Keyboard,
@@ -14,9 +14,10 @@ import Animated, {
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
-import { Trash2, Check, Plus, X, ArrowUpDown, SlidersHorizontal, ChevronRight } from 'lucide-react-native';
+import { Trash2, Check, Plus, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react-native';
 
 import { useSystemStore, Quest, QuestRank, CATEGORY_STAT, xpForLevel } from '../../src/store/useSystemStore';
 import { LevelUpModal } from '../../src/components/LevelUpModal';
@@ -345,6 +346,8 @@ export default function QuestsScreen() {
   const [showLvlUp, setShowLvlUp] = useState(false);
   const [lvlUpNum, setLvlUpNum]   = useState(1);
   const [addCatMode, setAddCatMode] = useState(false);
+  const params = useLocalSearchParams<{ aiCreate?: string; aiPrompt?: string }>();
+  const router = useRouter();
 
   const toggle = useCallback((id: number) => {
     const result = toggleQuest(id);
@@ -395,6 +398,31 @@ export default function QuestsScreen() {
     setAddMode(true);
     setShowFilter(false);
   };
+
+  useEffect(() => {
+    if (params.aiCreate === '1') {
+      openAddModal();
+      router.setParams({ aiCreate: undefined });
+    }
+  }, [params.aiCreate, router]);
+
+  useEffect(() => {
+    if (typeof params.aiPrompt === 'string' && params.aiPrompt.trim()) {
+      const text = params.aiPrompt.trim();
+      const cleaned = text
+        .replace(/^create\s+quest\s*[:\-]?\s*/i, '')
+        .replace(/^new\s+quest\s*[:\-]?\s*/i, '')
+        .trim();
+      const [titleCandidate, ...descParts] = cleaned.split(/[.!?]/);
+      setNewTitle((titleCandidate || cleaned || text).trim());
+      setNewDesc(descParts.join('. ').trim());
+      setAddMode(true);
+      setManageCatMode(false);
+      setShowFilter(false);
+      setEditingQuest(null);
+      router.setParams({ aiPrompt: undefined });
+    }
+  }, [params.aiPrompt, router]);
 
   const pending    = quests.filter(q => !q.completed && (!q.isProgressBased || !q.progress));
   const inProgress = quests.filter(q => !q.completed && q.isProgressBased && q.progress && q.progress > 0);
@@ -1105,4 +1133,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   modalXPText: { fontFamily: F.semiBold, fontSize: 12 },
+
 });

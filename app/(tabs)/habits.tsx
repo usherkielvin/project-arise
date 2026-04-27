@@ -1,13 +1,14 @@
 /**
  * Habits Screen — Minimalist habit tracker. Full dark mode support.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, TextInput, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withSequence, FadeIn, Easing,
 } from 'react-native-reanimated';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSystemStore, Habit, HabitCategory, computeHabitTotalXP } from '../../src/store/useSystemStore';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -180,6 +181,8 @@ export default function HabitsScreen() {
   const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const params = useLocalSearchParams<{ aiCreate?: string; aiPrompt?: string }>();
+  const router = useRouter();
 
   const now        = new Date();
   const weekDates  = [...Array(7)].map((_, i) => {
@@ -207,6 +210,28 @@ export default function HabitsScreen() {
   const pct           = habits.length ? Math.round((doneToday / habits.length) * 100) : 0;
   const selectedHabit = selectedHabitId ? habits.find((h) => h.id === selectedHabitId) ?? null : null;
   const calendarDate = new Date(now.getFullYear(), now.getMonth() + calendarMonthOffset, 1);
+
+  useEffect(() => {
+    if (params.aiCreate === '1') {
+      setSelectedHabitId(null);
+      setAddMode(true);
+      router.setParams({ aiCreate: undefined });
+    }
+  }, [params.aiCreate, router]);
+
+  useEffect(() => {
+    if (typeof params.aiPrompt === 'string' && params.aiPrompt.trim()) {
+      const text = params.aiPrompt.trim();
+      const cleaned = text
+        .replace(/^create\s+habit\s*[:\-]?\s*/i, '')
+        .replace(/^new\s+habit\s*[:\-]?\s*/i, '')
+        .trim();
+      setNewHabitTitle(cleaned || text);
+      setSelectedHabitId(null);
+      setAddMode(true);
+      router.setParams({ aiPrompt: undefined });
+    }
+  }, [params.aiPrompt, router]);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.void }]}>

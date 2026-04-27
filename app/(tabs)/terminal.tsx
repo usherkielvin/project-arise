@@ -5,6 +5,7 @@ import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { protocolAccent } from '../../src/theme/colors';
 import { useSystemStore } from '../../src/store/useSystemStore';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function TerminalScreen() {
   const { colors: C, isDark } = useTheme();
@@ -28,6 +29,8 @@ export default function TerminalScreen() {
   const [livePercent, setLivePercent] = useState<number | null>(null);
   const [fetching, setFetching] = useState(false);
   const [livePriceError, setLivePriceError] = useState<string | null>(null);
+  const params = useLocalSearchParams<{ aiCreate?: string; aiPrompt?: string }>();
+  const router = useRouter();
 
   const parseMarketMeta = (data: any) => {
     const meta = data?.chart?.result?.[0]?.meta;
@@ -97,6 +100,37 @@ export default function TerminalScreen() {
     : 0;
 
   const totalPips = useMemo(() => tradeLogs.reduce((sum, t) => sum + t.pips, 0), [tradeLogs]);
+
+  React.useEffect(() => {
+    if (params.aiCreate === '1') {
+      setEditingId(null);
+      setInstrument('XAUUSD');
+      setDirection('LONG');
+      setSetup('');
+      setEntry('');
+      setExit('');
+      setNotes('');
+      setLivePrice(null);
+      setLivePercent(null);
+      setLivePriceError(null);
+      router.setParams({ aiCreate: undefined });
+    }
+  }, [params.aiCreate, router]);
+
+  React.useEffect(() => {
+    if (typeof params.aiPrompt === 'string' && params.aiPrompt.trim()) {
+      const text = params.aiPrompt.trim();
+      setEditingId(null);
+      setNotes(text);
+      setSetup(text.toLowerCase().includes('scalp') ? 'Scalp' : '');
+      setEntry('');
+      setExit('');
+      setLivePrice(null);
+      setLivePercent(null);
+      setLivePriceError(null);
+      router.setParams({ aiPrompt: undefined });
+    }
+  }, [params.aiPrompt, router]);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>

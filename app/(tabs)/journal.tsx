@@ -35,7 +35,7 @@ export default function JournalScreen() {
   const { colors: C } = useTheme();
   const store = useSystemStore();
   const router = useRouter();
-  const params = useLocalSearchParams<{ openDate?: string }>();
+  const params = useLocalSearchParams<{ openDate?: string; aiPrompt?: string }>();
   const [editingDate, setEditingDate] = useState<string | null>(null);
 
   const sortedJournals = [...store.journals].sort((a, b) => b.date.localeCompare(a.date));
@@ -50,6 +50,13 @@ export default function JournalScreen() {
       setEditingDate(params.openDate);
     }
   }, [params.openDate]);
+
+  useEffect(() => {
+    if (typeof params.aiPrompt === 'string' && params.aiPrompt.trim().length > 0) {
+      setEditingDate(getLocalDateString(new Date()));
+      router.setParams({ aiPrompt: undefined });
+    }
+  }, [params.aiPrompt, router]);
 
   if (editingDate) {
     return (
