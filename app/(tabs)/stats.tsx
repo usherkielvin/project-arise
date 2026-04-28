@@ -9,12 +9,14 @@ import Animated, {
   withDelay, withTiming, Easing,
 } from 'react-native-reanimated';
 import { useTheme, ThemeMode } from '../../src/theme/ThemeContext';
-import { ProtocolMode, useSystemStore, xpForLevel } from '../../src/store/useSystemStore';
+import { ProtocolMode, useSystemStore } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
 import { Sun, Moon, Smartphone, Activity, TrendingUp, Swords, Flame, Skull, Crown, Ghost, Zap, Image as ImageIcon, X } from 'lucide-react-native';
 import { protocolAccent } from '../../src/theme/colors';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { getLevelProgress } from '../../src/utils/progression';
+import { getRankScale, rankFromLevel } from '../../src/features/stats/rank';
 
 // ─── Stat base config (labels, sub, colorKey) ──────────────────────────────
 const STAT_CONFIG = [
@@ -111,10 +113,9 @@ function ThemeToggle() {
 
 
 // ─── Rank Bar ─────────────────────────────────────────────────────────────────
-const RANKS = ['E', 'D', 'C', 'B', 'A', 'S'];
-
 function RankBar({ currentRank }: { currentRank: string }) {
   const { colors: C, isDark } = useTheme();
+  const RANKS = getRankScale();
   const idx = RANKS.indexOf(currentRank);
   const rankColors = isDark ? RANK_COLORS_DARK : RANK_COLORS_LIGHT;
 
@@ -152,15 +153,6 @@ function RankBar({ currentRank }: { currentRank: string }) {
       })}
     </View>
   );
-}
-
-function rankFromLevel(lvl: number) {
-  if (lvl >= 101) return { rank: 'S', title: 'Shadow Monarch' };
-  if (lvl >= 71)  return { rank: 'A', title: 'A-Rank Specialist' };
-  if (lvl >= 46)  return { rank: 'B', title: 'B-Rank Developer' };
-  if (lvl >= 26)  return { rank: 'C', title: 'C-Rank Apprentice' };
-  if (lvl >= 11)  return { rank: 'D', title: 'D-Rank Hunter' };
-  return           { rank: 'E', title: 'E-Rank Hunter' };
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -250,8 +242,7 @@ export default function StatsScreen() {
 
   const totalStat   = STATS_DATA.reduce((s, st) => s + st.value, 0);
   const maxStat     = STATS_DATA.reduce((s, st) => s + st.max, 0);
-  const curLevelXP  = xpForLevel(store.level);
-  const nextLevelXP = xpForLevel(store.level + 1);
+  const { nextLevelXP, progressPercent, xpToNext } = getLevelProgress(store.totalXP, store.level);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -367,7 +358,7 @@ export default function StatsScreen() {
               {store.totalXP}<Text style={[styles.powerMax, { color: C.textMut }]}>/{nextLevelXP}</Text>
             </Text>
             <View style={[styles.powerBar, { backgroundColor: C.surface2 }]}>
-              <View style={[styles.powerBarFill, { width: `${Math.min(((store.totalXP - curLevelXP) / (nextLevelXP - curLevelXP)) * 100, 100)}%`, backgroundColor: C.blue }]} />
+              <View style={[styles.powerBarFill, { width: `${progressPercent}%`, backgroundColor: C.blue }]} />
             </View>
           </View>
         </View>
@@ -383,7 +374,7 @@ export default function StatsScreen() {
                 <Text style={{ color: nextColor, fontFamily: F.semiBold }}>{nextRank}-Rank</Text>
               </Text>
               <Text style={[styles.nextRankSub, { color: C.textMut }]}>
-                Gain {nextLevelXP - store.totalXP} more XP to advance
+                Gain {xpToNext} more XP to advance
               </Text>
             </View>
           </View>

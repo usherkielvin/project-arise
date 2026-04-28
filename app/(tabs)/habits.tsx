@@ -14,6 +14,8 @@ import { useSystemStore, Habit, HabitCategory, computeHabitTotalXP } from '../..
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { Flame, Heart, Brain, Briefcase, Zap, Plus, X, Check, ChevronLeft, ChevronRight, Trash2, Sparkles } from 'lucide-react-native';
+import { normalizeHabitPrompt } from '../../src/utils/aiRouting';
+import { getMonthCells } from '../../src/features/habits/calendar';
 
 const CAT_META: Record<HabitCategory, { label: string; Icon: any; colorKey: 'habitHealth'|'habitMind'|'habitWork'|'habitSocial' }> = {
   health: { label:'Health', Icon:Heart,     colorKey:'habitHealth' },
@@ -24,39 +26,6 @@ const CAT_META: Record<HabitCategory, { label: string; Icon: any; colorKey: 'hab
 
 const DAYS       = ['M','T','W','T','F','S','S'];
 const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-
-function getMonthCells(baseDate: Date, checkedDates: string[]) {
-  const year = baseDate.getFullYear();
-  const month = baseDate.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const leading = firstDay.getDay();
-
-  const doneSet = new Set(checkedDates);
-
-  const cells: { day: number | null; done: boolean; isToday: boolean; isFuture: boolean; dateKey: string | null }[] = [];
-  for (let i = 0; i < leading; i += 1) {
-    cells.push({ day: null, done: false, isToday: false, isFuture: false, dateKey: null });
-  }
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const d = new Date(year, month, day);
-    const key = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-    const today = new Date();
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
-    cells.push({
-      day,
-      done: doneSet.has(key),
-      isToday: d.toDateString() === today.toDateString(),
-      isFuture: d.getTime() > endOfToday.getTime(),
-      dateKey: key,
-    });
-  }
-
-  return {
-    monthLabel: firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    cells,
-  };
-}
 
 function HabitRow({ habit, onComplete, onUncheck, onOpen, onDelete, index }: {
   habit: Habit; onComplete: (id: number) => void;
@@ -206,7 +175,6 @@ export default function HabitsScreen() {
 
   const habitTotalXP  = habits.reduce((acc, h) => acc + computeHabitTotalXP(h.checkedDates || []), 0);
   const doneToday     = habits.filter(h => h.week[6]).length;
-  const longestStreak = habits.length ? Math.max(...habits.map(h => h.streak)) : 0;
   const pct           = habits.length ? Math.round((doneToday / habits.length) * 100) : 0;
   const selectedHabit = selectedHabitId ? habits.find((h) => h.id === selectedHabitId) ?? null : null;
   const calendarDate = new Date(now.getFullYear(), now.getMonth() + calendarMonthOffset, 1);
@@ -221,12 +189,7 @@ export default function HabitsScreen() {
 
   useEffect(() => {
     if (typeof params.aiPrompt === 'string' && params.aiPrompt.trim()) {
-      const text = params.aiPrompt.trim();
-      const cleaned = text
-        .replace(/^create\s+habit\s*[:\-]?\s*/i, '')
-        .replace(/^new\s+habit\s*[:\-]?\s*/i, '')
-        .trim();
-      setNewHabitTitle(cleaned || text);
+      setNewHabitTitle(normalizeHabitPrompt(params.aiPrompt));
       setSelectedHabitId(null);
       setAddMode(true);
       router.setParams({ aiPrompt: undefined });

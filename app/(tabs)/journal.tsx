@@ -1,26 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { useSystemStore } from '../../src/store/useSystemStore';
-import { Plus, X, ChevronRight } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutRight } from 'react-native-reanimated';
+import { Plus, X } from 'lucide-react-native';
+import Animated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
-function getLocalDateString(d: Date) {
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-}
-
-function formatDisplayDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short'
-  });
-}
+import { getLocalDateString } from '../../src/utils/date';
 
 function formatLongDate(dateStr: string) {
     const d = new Date(dateStr);

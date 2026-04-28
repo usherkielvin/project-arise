@@ -4,6 +4,8 @@ import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { useSystemStore } from '../../src/store/useSystemStore';
+import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
+import { SectionCard } from '../../src/components/ui/SectionCard';
 
 export default function VaultScreen() {
   const { colors: C } = useTheme();
@@ -95,10 +97,12 @@ export default function VaultScreen() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: C.text }]}>Vault</Text>
-          <Text style={[styles.sub, { color: C.textMut }]}>Monthly calendar and trading performance.</Text>
-        </View>
+        <ScreenHeader
+          title="Vault"
+          subtitle="Monthly calendar and trading performance."
+          titleColor={C.text}
+          subtitleColor={C.textMut}
+        />
 
         <View style={styles.calendarHeaderRow}>
           <Pressable onPress={() => setCurrentDate(new Date(currentYear, currentMonth - 1, 1))} style={styles.navBtn}>
@@ -110,7 +114,7 @@ export default function VaultScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.goalContainer}>
+        <SectionCard backgroundColor={C.void} borderColor={C.border} style={styles.goalContainer}>
           <Text style={[styles.goalTitle, { color: C.text }]}>◎ Monthly goal</Text>
           <View style={[styles.progressBarBg, { backgroundColor: C.surface2 }]}>
              <View style={[styles.progressBarFill, { backgroundColor: C.success, width: `${progressPercent}%` }]} />
@@ -119,7 +123,7 @@ export default function VaultScreen() {
              <Text style={[styles.goalCurrent, { color: C.success }]}>{monthStats.pnl > 0 ? '+' : monthStats.pnl < 0 ? '-' : ''}${Math.abs(monthStats.pnl)}</Text>
              <Text style={[styles.goalTarget, { color: C.textMut }]}>of ${monthlyGoal}</Text>
           </View>
-        </View>
+        </SectionCard>
         
         <View style={styles.calendarGrid}>
           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, i) => (
@@ -185,15 +189,12 @@ export default function VaultScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8, gap: 4 },
-  title: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
-  sub: { fontFamily: F.regular, fontSize: 13 },
   
   calendarHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginBottom: 20 },
   cardTitle: { fontFamily: F.semiBold, fontSize: 16 },
   navBtn: { paddingHorizontal: 12, paddingVertical: 4 },
 
-  goalContainer: { marginHorizontal: 20, marginBottom: 24 },
+  goalContainer: { marginBottom: 24 },
   goalTitle: { fontFamily: F.medium, fontSize: 14, marginBottom: 12 },
   progressBarBg: { height: 6, borderRadius: 3, width: '100%', overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: 3 },

@@ -15,6 +15,7 @@ import { useSystemStore, Quest, xpForLevel } from '../../src/store/useSystemStor
 import { F } from '../../src/theme/fonts';
 import { Check, ChevronRight, Flame, BookOpen, PenLine } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { getLevelProgress } from '../../src/utils/progression';
 
 // ─── Pulsing dot ────────────────────────────────────────────────────────────────
 function PulsingDot({ color }: { color: string }) {
@@ -183,9 +184,7 @@ export default function HomeScreen() {
   const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
   const todayJournal = journals.find(j => j.date === todayStr)?.content || '';
 
-  const nextXP = xpForLevel(level + 1);
-  const curXP = xpForLevel(level);
-  const progress = Math.min(((totalXP - curXP) / (nextXP - curXP)) * 100, 100);
+  const { progressPercent } = getLevelProgress(totalXP, level);
 
   const handleToggleQuest = (id: number) => {
     const q = quests.find(x => x.id === id);
@@ -238,10 +237,10 @@ export default function HomeScreen() {
         <View style={styles.levelStrip}>
           <View style={styles.levelStripRow}>
             <Text style={[styles.levelStripLabel, { color: C.text }]}>Level {String(level).padStart(2, '0')}</Text>
-            <Text style={[styles.levelStripPct, { color: C.textMut }]}>{Math.round(progress)}% to next</Text>
+            <Text style={[styles.levelStripPct, { color: C.textMut }]}>{Math.round(progressPercent)}% to next</Text>
           </View>
           <View style={[styles.levelBar, { backgroundColor: C.surface2 }]}>
-            <View style={[styles.levelBarFill, { width: `${progress}%`, backgroundColor: C.blue }]} />
+            <View style={[styles.levelBarFill, { width: `${progressPercent}%`, backgroundColor: C.blue }]} />
           </View>
         </View>
 

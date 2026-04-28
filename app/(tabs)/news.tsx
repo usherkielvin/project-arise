@@ -5,6 +5,8 @@ import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
 import { protocolAccent } from '../../src/theme/colors';
 import { useSystemStore } from '../../src/store/useSystemStore';
+import { ScreenHeader } from '../../src/components/ui/ScreenHeader';
+import { SectionCard } from '../../src/components/ui/SectionCard';
 
 const DEFAULT_EVENTS = [
   { id: 'nfp', title: 'NFP Release', date: 'Fri 20:30', impact: 'High' },
@@ -57,7 +59,7 @@ export default function NewsScreen() {
         } else {
           setEvents(DEFAULT_EVENTS);
         }
-      } catch (err) {
+      } catch {
         setEvents(DEFAULT_EVENTS);
       } finally {
         setLoading(false);
@@ -69,12 +71,14 @@ export default function NewsScreen() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: C.surface }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: C.text }]}>News</Text>
-          <Text style={[styles.sub, { color: C.textMut }]}>Mark prepared events to gain +50 PER XP.</Text>
-        </View>
+        <ScreenHeader
+          title="News"
+          subtitle="Mark prepared events to gain +50 PER XP."
+          titleColor={C.text}
+          subtitleColor={C.textMut}
+        />
 
-        <View style={[styles.card, { backgroundColor: C.void, borderColor: C.border }]}>
+        <SectionCard backgroundColor={C.void} borderColor={C.border} style={styles.card}>
           {loading ? (
             <View style={{ padding: 20, alignItems: 'center' }}>
               <Text style={{ color: C.textMut, fontFamily: F.medium }}>Loading latest news...</Text>
@@ -111,7 +115,7 @@ export default function NewsScreen() {
               );
             })
           )}
-        </View>
+        </SectionCard>
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -121,10 +125,7 @@ export default function NewsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingTop: 24, gap: 4 },
-  title: { fontFamily: F.bold, fontSize: 34, letterSpacing: -1 },
-  sub: { fontFamily: F.regular, fontSize: 13 },
-  card: { marginHorizontal: 20, marginTop: 18, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  card: { marginTop: 18, borderRadius: 14, overflow: 'hidden', padding: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
   rowTitle: { fontFamily: F.medium, fontSize: 14 },
   rowSub: { fontFamily: F.regular, fontSize: 12, marginTop: 2 },

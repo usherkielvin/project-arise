@@ -8,6 +8,8 @@ import { F } from '../../src/theme/fonts';
 import { useSystemStore } from '../../src/store/useSystemStore';
 import { protocolAccent } from '../../src/theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getLocalDateString } from '../../src/utils/date';
+import { resolveAiTargetTab } from '../../src/utils/aiRouting';
 
 export default function TabLayout() {
   const { colors: C, isDark } = useTheme();
@@ -44,8 +46,7 @@ export default function TabLayout() {
           label: 'New Journal Log',
           icon: ScrollText,
           onPress: () => {
-            const today = new Date();
-            const openDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+            const openDate = getLocalDateString(new Date());
             router.push({ pathname: '/(tabs)/journal', params: { openDate } });
           },
         },
@@ -67,17 +68,7 @@ export default function TabLayout() {
   const handleAiSubmit = () => {
     const text = aiText.trim();
     if (!text) return;
-    const lower = text.toLowerCase();
-
-    if (lower.includes('habit')) {
-      router.push({ pathname: '/(tabs)/habits', params: { aiPrompt: text } });
-    } else if (lower.includes('journal') || lower.includes('log')) {
-      router.push({ pathname: '/(tabs)/journal', params: { aiPrompt: text } });
-    } else if (lower.includes('trade') || lower.includes('terminal') || lower.includes('xau') || lower.includes('btc')) {
-      router.push({ pathname: '/(tabs)/terminal', params: { aiPrompt: text } });
-    } else {
-      router.push({ pathname: '/(tabs)/quests', params: { aiPrompt: text } });
-    }
+    router.push({ pathname: resolveAiTargetTab(text), params: { aiPrompt: text } });
 
     setAiText('');
     setAiComposerOpen(false);

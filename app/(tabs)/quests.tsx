@@ -2,7 +2,7 @@
  * Quests Screen — Polished quest journal with category filters, counts,
  * sort options, grouped sections, and full dark-mode support.
  */
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   ScrollView, View, Text, Pressable, TextInput,
   StyleSheet, Keyboard,
@@ -17,7 +17,9 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { F } from '../../src/theme/fonts';
-import { Trash2, Check, Plus, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react-native';
+import { Trash2, Check, Plus, X, SlidersHorizontal } from 'lucide-react-native';
+import { normalizeQuestPrompt } from '../../src/utils/aiRouting';
+import { splitQuestsByState } from '../../src/features/quests/questGroups';
 
 import { useSystemStore, Quest, QuestRank, CATEGORY_STAT, xpForLevel } from '../../src/store/useSystemStore';
 import { LevelUpModal } from '../../src/components/LevelUpModal';
@@ -228,55 +230,6 @@ function QuestRow({
   );
 }
 
-// ─── Filter Chip ──────────────────────────────────────────────────────────────
-function FilterChip({
-  label, count, active, onPress, onLongPress,
-}: {
-  label: string; count: number; active: boolean;
-  onPress: () => void; onLongPress?: () => void;
-}) {
-  const { colors: C } = useTheme();
-  const scale = useSharedValue(1);
-
-  const handlePress = () => {
-    Haptics.selectionAsync();
-    scale.value = withSequence(
-      withTiming(0.95, { duration: 70, easing: Easing.out(Easing.cubic) }),
-      withTiming(1.0,  { duration: 120, easing: Easing.out(Easing.cubic) })
-    );
-    onPress();
-  };
-
-  const chipStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  return (
-    <Pressable onPress={handlePress} onLongPress={onLongPress}>
-      <Animated.View style={[
-        styles.chip,
-        {
-          backgroundColor: active ? C.blue : C.surface,
-          borderColor: active ? C.blue : C.border,
-        },
-        chipStyle,
-      ]}>
-        <Text style={[styles.chipText, { color: active ? '#fff' : C.textSub }]}>
-          {label}
-        </Text>
-        {count > 0 && (
-          <View style={[
-            styles.chipBadge,
-            { backgroundColor: active ? 'rgba(255,255,255,0.22)' : C.surface2 },
-          ]}>
-            <Text style={[styles.chipBadgeText, { color: active ? '#fff' : C.textMut }]}>
-              {count}
-            </Text>
-          </View>
-        )}
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 // ─── Filter Sheet ──────────────────────────────────────────────────────────────
 function FilterPicker({
   filter, onFilterChange
@@ -408,14 +361,9 @@ export default function QuestsScreen() {
 
   useEffect(() => {
     if (typeof params.aiPrompt === 'string' && params.aiPrompt.trim()) {
-      const text = params.aiPrompt.trim();
-      const cleaned = text
-        .replace(/^create\s+quest\s*[:\-]?\s*/i, '')
-        .replace(/^new\s+quest\s*[:\-]?\s*/i, '')
-        .trim();
-      const [titleCandidate, ...descParts] = cleaned.split(/[.!?]/);
-      setNewTitle((titleCandidate || cleaned || text).trim());
-      setNewDesc(descParts.join('. ').trim());
+      const { title, description } = normalizeQuestPrompt(params.aiPrompt);
+      setNewTitle(title);
+      setNewDesc(description);
       setAddMode(true);
       setManageCatMode(false);
       setShowFilter(false);
@@ -424,9 +372,7 @@ export default function QuestsScreen() {
     }
   }, [params.aiPrompt, router]);
 
-  const pending    = quests.filter(q => !q.completed && (!q.isProgressBased || !q.progress));
-  const inProgress = quests.filter(q => !q.completed && q.isProgressBased && q.progress && q.progress > 0);
-  const completed  = quests.filter(q => q.completed);
+  const { pending, inProgress, completed } = splitQuestsByState(quests);
 
   const totalXP   = completed.reduce((s, q) => s + q.xp, 0);
   const doneCount = completed.length;
@@ -899,44 +845,6 @@ const styles = StyleSheet.create({
     height: 1,
   },
 
-  // Filter
-  filterWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    paddingRight: 16,
-  },
-  filterBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 7,
-    flexDirection: 'row',
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 6,
-  },
-  chipText: {
-    fontFamily: F.medium,
-    fontSize: 13,
-  },
-  chipBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  chipBadgeText: {
-    fontFamily: F.monoBold,
-    fontSize: 10,
-  },
   sortTag: {
     flexDirection: 'row',
     alignItems: 'center',
