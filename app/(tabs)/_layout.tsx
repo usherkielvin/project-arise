@@ -215,7 +215,7 @@ export default function TabLayout() {
                       value={aiText}
                       onChangeText={setAiText}
                       placeholder="Ask, search, or make anything..."
-                      placeholderTextColor={C.textMut}
+                      placeholderTextColor={C.textSub}
                       style={[styles.composerInput, { color: C.text }]}
                       autoFocus
                       multiline
@@ -382,8 +382,8 @@ const styles = StyleSheet.create({
     minHeight: 32,
     maxHeight: 120,
     fontFamily: F.regular,
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 16,
+    lineHeight: 22,
     textAlignVertical: 'top',
   },
   composerActions: {
