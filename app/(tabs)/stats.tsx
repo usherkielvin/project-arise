@@ -279,7 +279,7 @@ export default function StatsScreen() {
         <View style={styles.header}>
           <Text style={[styles.title, { color: C.text }]}>Profile</Text>
           <Pressable
-            onPress={() => router.push('/(tabs)/settings')}
+            onPress={() => router.push('/(tabs)/settings' as any)}
             style={[styles.settingsBtn, { backgroundColor: C.surface2, borderColor: C.border }]}
           >
             <Settings size={17} color={C.textMut} strokeWidth={2} />
