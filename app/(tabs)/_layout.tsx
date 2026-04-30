@@ -185,6 +185,10 @@ export default function TabLayout() {
           name="inventory"
           options={{ href: null }}
         />
+        <Tabs.Screen
+          name="settings"
+          options={{ href: null }}
+        />
       </Tabs>
 
       {quickActions.length > 0 && (

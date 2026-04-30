@@ -11,7 +11,7 @@ import Animated, {
 import { useTheme, ThemeMode } from '../../src/theme/ThemeContext';
 import { ProtocolMode, useSystemStore } from '../../src/store/useSystemStore';
 import { F } from '../../src/theme/fonts';
-import { Sun, Moon, Smartphone, Activity, TrendingUp, Swords, Flame, Skull, Crown, Ghost, Zap, Image as ImageIcon, X } from 'lucide-react-native';
+import { Sun, Moon, Smartphone, Activity, TrendingUp, Swords, Flame, Skull, Crown, Ghost, Zap, Image as ImageIcon, X, Settings } from 'lucide-react-native';
 import { protocolAccent } from '../../src/theme/colors';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -278,6 +278,12 @@ export default function StatsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: C.text }]}>Profile</Text>
+          <Pressable
+            onPress={() => router.push('/(tabs)/settings')}
+            style={[styles.settingsBtn, { backgroundColor: C.surface2, borderColor: C.border }]}
+          >
+            <Settings size={17} color={C.textMut} strokeWidth={2} />
+          </Pressable>
         </View>
 
         {/* Name card */}
@@ -550,8 +556,16 @@ export default function StatsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 4, gap: 4 },
+  header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 4, gap: 4, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   title: { fontFamily: F.bold, fontSize: 36, letterSpacing: -1.2, marginTop: 4 },
+  settingsBtn: {
+    width: 36, height: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
 
   // Name card
   nameCard: {
