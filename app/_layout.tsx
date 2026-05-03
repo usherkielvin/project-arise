@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import '../global.css';
 
 import {
@@ -25,6 +26,7 @@ import { useSystemStore } from '../src/store/useSystemStore';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { F } from '../src/theme/fonts';
 import { ShieldAlert } from 'lucide-react-native';
+import OnboardingScreen from '../src/components/OnboardingScreen';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // During fast refresh/reload, splash may already be managed.
@@ -73,6 +75,8 @@ function AppShell() {
   );
 }
 
+const ONBOARDING_KEY = 'arise-onboarding-complete';
+
 export default function RootLayout() {
   const didHideSplashRef = useRef(false);
   const [fontsLoaded, fontError] = useFonts({
@@ -83,17 +87,47 @@ export default function RootLayout() {
     JetBrainsMono_400Regular,
     JetBrainsMono_700Bold,
   });
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    if ((fontsLoaded || fontError) && !didHideSplashRef.current) {
-      didHideSplashRef.current = true;
-      void SplashScreen.hideAsync().catch(() => {
-        // Ignore race conditions when native splash is already hidden.
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then((val) => {
+        setShowOnboarding(val === null);
+        setOnboardingChecked(true);
+      })
+      .catch(() => {
+        setShowOnboarding(false);
+        setOnboardingChecked(true);
       });
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && onboardingChecked && !didHideSplashRef.current) {
+      didHideSplashRef.current = true;
+      void SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, onboardingChecked]);
 
   if (!fontsLoaded && !fontError) return null;
+  if (!onboardingChecked) return null;
+
+  const handleOnboardingComplete = () => {
+    void AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch(() => {});
+    setShowOnboarding(false);
+  };
+
+  if (showOnboarding) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <OnboardingScreen onComplete={handleOnboardingComplete} />
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
